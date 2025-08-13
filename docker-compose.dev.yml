@@ -18,3 +18,4 @@ services:
     restart: unless-stopped
     environment:
       - TERM=xterm-256color
+      # - EXTERNAL_MQTT_BROKER=tcp://localhost:1883

@@ -1,0 +1,802 @@
+[
+  {
+    "date_code": "",
+    "definition": {
+      "description": "",
+      "exposes": null,
+      "model": "",
+      "vendor": "",
+      "supports_ota": false,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "Coordinator",
+    "disabled": false,
+    "ieee_address": "0x00124b00257ca91c",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "",
+    "model_id": "",
+    "network_address": 0,
+    "power_source": "",
+    "supported": true,
+    "type": "Coordinator"
+  },
+  {
+    "date_code": "20221115",
+    "definition": {
+      "description": "Hue white and color ambiance E27 1100lm",
+      "exposes": [
+        {
+          "features": [
+            {
+              "access": 7,
+              "description": "On/off state of this light",
+              "label": "State",
+              "name": "state",
+              "property": "state",
+              "type": "binary",
+              "value_off": "OFF",
+              "value_on": "ON",
+              "value_toggle": "TOGGLE"
+            },
+            {
+              "access": 7,
+              "description": "Brightness of this light",
+              "label": "Brightness",
+              "name": "brightness",
+              "property": "brightness",
+              "type": "numeric",
+              "value_max": 254,
+              "value_min": 0
+            },
+            {
+              "access": 7,
+              "description": "Color temperature of this light",
+              "label": "Color temp",
+              "name": "color_temp",
+              "presets": [
+                {
+                  "description": "Coolest temperature supported",
+                  "name": "coolest",
+                  "value": 153
+                },
+                {
+                  "description": "Cool temperature (250 mireds / 4000 Kelvin)",
+                  "name": "cool",
+                  "value": 250
+                },
+                {
+                  "description": "Neutral temperature (370 mireds / 2700 Kelvin)",
+                  "name": "neutral",
+                  "value": 370
+                },
+                {
+                  "description": "Warm temperature (454 mireds / 2200 Kelvin)",
+                  "name": "warm",
+                  "value": 454
+                },
+                {
+                  "description": "Warmest temperature supported",
+                  "name": "warmest",
+                  "value": 500
+                }
+              ],
+              "property": "color_temp",
+              "type": "numeric",
+              "unit": "mired",
+              "value_max": 500,
+              "value_min": 153
+            },
+            {
+              "access": 7,
+              "description": "Color temperature after cold power on of this light",
+              "label": "Color temp startup",
+              "name": "color_temp_startup",
+              "presets": [
+                {
+                  "description": "Coolest temperature supported",
+                  "name": "coolest",
+                  "value": 153
+                },
+                {
+                  "description": "Cool temperature (250 mireds / 4000 Kelvin)",
+                  "name": "cool",
+                  "value": 250
+                },
+                {
+                  "description": "Neutral temperature (370 mireds / 2700 Kelvin)",
+                  "name": "neutral",
+                  "value": 370
+                },
+                {
+                  "description": "Warm temperature (454 mireds / 2200 Kelvin)",
+                  "name": "warm",
+                  "value": 454
+                },
+                {
+                  "description": "Warmest temperature supported",
+                  "name": "warmest",
+                  "value": 500
+                },
+                {
+                  "description": "Restore previous color_temp on cold power on",
+                  "name": "previous",
+                  "value": 65535
+                }
+              ],
+              "property": "color_temp_startup",
+              "type": "numeric",
+              "unit": "mired",
+              "value_max": 500,
+              "value_min": 153
+            },
+            {
+              "access": 7,
+              "description": "Color of this light in the CIE 1931 color space (x/y)",
+              "features": [
+                {
+                  "access": 7,
+                  "label": "X",
+                  "name": "x",
+                  "property": "x",
+                  "type": "numeric"
+                },
+                {
+                  "access": 7,
+                  "label": "Y",
+                  "name": "y",
+                  "property": "y",
+                  "type": "numeric"
+                }
+              ],
+              "label": "Color (X/Y)",
+              "name": "color_xy",
+              "property": "color",
+              "type": "composite"
+            },
+            {
+              "access": 7,
+              "description": "Color of this light expressed as hue/saturation",
+              "features": [
+                {
+                  "access": 7,
+                  "label": "Hue",
+                  "name": "hue",
+                  "property": "hue",
+                  "type": "numeric"
+                },
+                {
+                  "access": 7,
+                  "label": "Saturation",
+                  "name": "saturation",
+                  "property": "saturation",
+                  "type": "numeric"
+                }
+              ],
+              "label": "Color (HS)",
+              "name": "color_hs",
+              "property": "color",
+              "type": "composite"
+            }
+          ],
+          "type": "light"
+        },
+        {
+          "access": 7,
+          "category": "config",
+          "description": "Controls the behavior when the device is powered on after power loss",
+          "label": "Power-on behavior",
+          "name": "power_on_behavior",
+          "property": "power_on_behavior",
+          "type": "enum",
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ]
+        },
+        {
+          "access": 2,
+          "label": "Effect",
+          "name": "effect",
+          "property": "effect",
+          "type": "enum",
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ]
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "9290024688",
+      "vendor": "Philips",
+      "supports_ota": true,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0x001788010c7caac9",
+    "disabled": false,
+    "ieee_address": "0x001788010c7caac9",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "Signify Netherlands B.V.",
+    "model_id": "LCA006",
+    "network_address": 7748,
+    "power_source": "Mains (single phase)",
+    "supported": true,
+    "type": "Router"
+  },
+  {
+    "date_code": "20191128",
+    "definition": {
+      "description": "Hue smart button",
+      "exposes": [
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Remaining battery in %, can take up to 24 hours before reported",
+          "label": "Battery",
+          "name": "battery",
+          "property": "battery",
+          "type": "numeric",
+          "unit": "%",
+          "value_max": 100,
+          "value_min": 0
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Triggered action (e.g. a button click)",
+          "label": "Action",
+          "name": "action",
+          "property": "action",
+          "type": "enum",
+          "values": [
+            "on",
+            "off",
+            "press",
+            "hold",
+            "release"
+          ]
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "8718699693985",
+      "vendor": "Philips",
+      "supports_ota": true,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0x001788010895b08c",
+    "disabled": false,
+    "ieee_address": "0x001788010895b08c",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "Philips",
+    "model_id": "ROM001",
+    "network_address": 63249,
+    "power_source": "Battery",
+    "supported": true,
+    "type": "EndDevice"
+  },
+  {
+    "date_code": "20240705",
+    "definition": {
+      "description": "Smart plug (UK)",
+      "exposes": [
+        {
+          "features": [
+            {
+              "access": 7,
+              "description": "On/off state of the switch",
+              "label": "State",
+              "name": "state",
+              "property": "state",
+              "type": "binary",
+              "value_off": "OFF",
+              "value_on": "ON",
+              "value_toggle": "TOGGLE"
+            }
+          ],
+          "type": "switch"
+        },
+        {
+          "access": 7,
+          "category": "config",
+          "description": "Controls the behavior when the device is powered on after power loss",
+          "label": "Power-on behavior",
+          "name": "power_on_behavior",
+          "property": "power_on_behavior",
+          "type": "enum",
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ]
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Instantaneous measured power",
+          "label": "Power",
+          "name": "power",
+          "property": "power",
+          "type": "numeric",
+          "unit": "W"
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Measured electrical potential value",
+          "label": "Voltage",
+          "name": "voltage",
+          "property": "voltage",
+          "type": "numeric",
+          "unit": "V"
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Instantaneous measured electrical current",
+          "label": "Current",
+          "name": "current",
+          "property": "current",
+          "type": "numeric",
+          "unit": "A"
+        },
+        {
+          "access": 5,
+          "description": "Sum of consumed energy",
+          "label": "Energy",
+          "name": "energy",
+          "property": "energy",
+          "type": "numeric",
+          "unit": "kWh"
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "SP 242",
+      "vendor": "Innr",
+      "supports_ota": true,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0xa4c138306c9883f2",
+    "disabled": false,
+    "ieee_address": "0xa4c138306c9883f2",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "innr",
+    "model_id": "SP 242",
+    "network_address": 56321,
+    "power_source": "Mains (single phase)",
+    "supported": true,
+    "type": "Router"
+  },
+  {
+    "date_code": "20230711 22:43",
+    "definition": {
+      "description": "Air quality sensor",
+      "exposes": [
+        {
+          "access": 5,
+          "description": "Measured VOC value",
+          "label": "Voc",
+          "name": "voc",
+          "property": "voc",
+          "type": "numeric",
+          "unit": "µg/m³"
+        },
+        {
+          "access": 1,
+          "description": "Measured air quality",
+          "label": "Air quality",
+          "name": "air_quality",
+          "property": "air_quality",
+          "type": "enum",
+          "values": [
+            "excellent",
+            "good",
+            "moderate",
+            "poor",
+            "unhealthy",
+            "out_of_range",
+            "unknown"
+          ]
+        },
+        {
+          "access": 5,
+          "description": "Measured temperature value",
+          "label": "Temperature",
+          "name": "temperature",
+          "property": "temperature",
+          "type": "numeric",
+          "unit": "°C"
+        },
+        {
+          "access": 5,
+          "description": "Measured relative humidity",
+          "label": "Humidity",
+          "name": "humidity",
+          "property": "humidity",
+          "type": "numeric",
+          "unit": "%"
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Remaining battery in %",
+          "label": "Battery",
+          "name": "battery",
+          "property": "battery",
+          "type": "numeric",
+          "unit": "%",
+          "value_max": 100,
+          "value_min": 0
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Reported battery voltage in millivolts",
+          "label": "Voltage",
+          "name": "voltage",
+          "property": "voltage",
+          "type": "numeric",
+          "unit": "mV"
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Indicates if the battery of this device is almost empty",
+          "label": "Battery low",
+          "name": "battery_low",
+          "property": "battery_low",
+          "type": "binary",
+          "value_off": false,
+          "value_on": true
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "AQSZB-110",
+      "vendor": "Develco",
+      "supports_ota": true,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0x0015bc0036002715",
+    "disabled": false,
+    "ieee_address": "0x0015bc0036002715",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "frient A/S",
+    "model_id": "AQSZB-110",
+    "network_address": 3624,
+    "power_source": "Battery",
+    "supported": true,
+    "type": "EndDevice"
+  },
+  {
+    "date_code": "20240705",
+    "definition": {
+      "description": "Smart plug (UK)",
+      "exposes": [
+        {
+          "features": [
+            {
+              "access": 7,
+              "description": "On/off state of the switch",
+              "label": "State",
+              "name": "state",
+              "property": "state",
+              "type": "binary",
+              "value_off": "OFF",
+              "value_on": "ON",
+              "value_toggle": "TOGGLE"
+            }
+          ],
+          "type": "switch"
+        },
+        {
+          "access": 7,
+          "category": "config",
+          "description": "Controls the behavior when the device is powered on after power loss",
+          "label": "Power-on behavior",
+          "name": "power_on_behavior",
+          "property": "power_on_behavior",
+          "type": "enum",
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ]
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Instantaneous measured power",
+          "label": "Power",
+          "name": "power",
+          "property": "power",
+          "type": "numeric",
+          "unit": "W"
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Measured electrical potential value",
+          "label": "Voltage",
+          "name": "voltage",
+          "property": "voltage",
+          "type": "numeric",
+          "unit": "V"
+        },
+        {
+          "access": 5,
+          "category": "diagnostic",
+          "description": "Instantaneous measured electrical current",
+          "label": "Current",
+          "name": "current",
+          "property": "current",
+          "type": "numeric",
+          "unit": "A"
+        },
+        {
+          "access": 5,
+          "description": "Sum of consumed energy",
+          "label": "Energy",
+          "name": "energy",
+          "property": "energy",
+          "type": "numeric",
+          "unit": "kWh"
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "SP 242",
+      "vendor": "Innr",
+      "supports_ota": true,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0xa4c1385961d5015e",
+    "disabled": false,
+    "ieee_address": "0xa4c1385961d5015e",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "innr",
+    "model_id": "SP 242",
+    "network_address": 51851,
+    "power_source": "Mains (single phase)",
+    "supported": true,
+    "type": "Router"
+  },
+  {
+    "date_code": "20240613",
+    "definition": {
+      "description": "E27 bulb",
+      "exposes": [
+        {
+          "features": [
+            {
+              "access": 7,
+              "description": "On/off state of this light",
+              "label": "State",
+              "name": "state",
+              "property": "state",
+              "type": "binary",
+              "value_off": "OFF",
+              "value_on": "ON",
+              "value_toggle": "TOGGLE"
+            },
+            {
+              "access": 7,
+              "description": "Brightness of this light",
+              "label": "Brightness",
+              "name": "brightness",
+              "property": "brightness",
+              "type": "numeric",
+              "value_max": 254,
+              "value_min": 0
+            }
+          ],
+          "type": "light"
+        },
+        {
+          "access": 2,
+          "description": "Triggers an effect on the light (e.g. make light blink for a few seconds)",
+          "label": "Effect",
+          "name": "effect",
+          "property": "effect",
+          "type": "enum",
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "finish_effect",
+            "stop_effect"
+          ]
+        },
+        {
+          "access": 7,
+          "category": "config",
+          "description": "Controls the behavior when the device is powered on after power loss",
+          "label": "Power-on behavior",
+          "name": "power_on_behavior",
+          "property": "power_on_behavior",
+          "type": "enum",
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ]
+        },
+        {
+          "access": 1,
+          "category": "diagnostic",
+          "description": "Link quality (signal strength)",
+          "label": "Linkquality",
+          "name": "linkquality",
+          "property": "linkquality",
+          "type": "numeric",
+          "unit": "lqi",
+          "value_max": 255,
+          "value_min": 0
+        }
+      ],
+      "model": "RB 262",
+      "vendor": "Innr",
+      "supports_ota": false,
+      "options": {
+        "access": 0,
+        "description": "",
+        "label": "",
+        "name": "",
+        "type": "",
+        "value_min": 0,
+        "value_max": 0,
+        "value_on": "",
+        "value_off": ""
+      }
+    },
+    "endpoint": null,
+    "friendly_name": "0xa4c138b354f79bdb",
+    "disabled": false,
+    "ieee_address": "0xa4c138b354f79bdb",
+    "interview_completed": true,
+    "interviewing": false,
+    "manufacturer": "innr",
+    "model_id": "RB 262",
+    "network_address": 49262,
+    "power_source": "Mains (single phase)",
+    "supported": true,
+    "type": "Router"
+  }
+]

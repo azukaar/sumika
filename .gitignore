@@ -1,0 +1,4 @@
+.claude
+build/
+build-data/
+zigbee2mqtt-data/

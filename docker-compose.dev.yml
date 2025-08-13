@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  sumika-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: sumika-server-dev
+    ports:
+      - "8081:8081"
+      - "1883:1883"
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - /dev:/dev
+      -  E:\work\Sumika\build-data:/app/build-data
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - TERM=xterm-256color

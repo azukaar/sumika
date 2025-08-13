@@ -1,0 +1,14 @@
+
+- Allow pining device property for dashboard manually rather than auto selecting
+
+# Maybe 
+
+- Add conditions for automations
+- Add multiple actions for automations
+
+# Later 
+
+- Add camera support 
+- Add bluetooth support 
+- Add Android support 
+- Add screen based light

@@ -1,0 +1,44 @@
+# Development Dockerfile - Server only (no Flutter build, no multiplatform)
+# Much faster builds for backend development
+
+# Stage 1: Build the Go server
+FROM golang:1.23-alpine AS go_builder
+
+# Install build dependencies
+RUN apk add --no-cache bash git
+
+WORKDIR /app
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the Go app source
+COPY server/ ./server/
+
+# Build the Go application (single platform, no cross-compilation)
+RUN CGO_ENABLED=0 go build -o sumika-server ./server
+
+# Stage 2: Create the final runtime image
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates libc6-compat
+
+# Create a non-root user to run the app
+RUN adduser -D appuser
+USER appuser
+
+WORKDIR /app
+
+# Copy the compiled Go binary from the builder stage
+COPY --from=go_builder /app/sumika-server /app/
+
+# Copy server assets (scene images, etc.) from the builder stage where we have the full source
+COPY --from=go_builder /app/server/assets /app/assets
+
+# Expose the port the server listens on
+EXPOSE 8081
+
+# Run the server
+CMD ["/app/sumika-server"]

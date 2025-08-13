@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto-data/config:/mosquitto/config
+      - ./mosquitto-data/data:/mosquitto/data
+      - ./mosquitto-data/log:/mosquitto/log
+    restart: unless-stopped
+
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: koenkk/zigbee2mqtt:latest
+    volumes:
+      - ./zigbee2mqtt-data:/app/data
+      - /run/udev:/run/udev:ro
+    devices:
+      - /dev:/dev      
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - TZ=UTC
+    ports:
+      - "18801:8080"
+    depends_on:
+      - mosquitto
+
+  sumika:
+    build: azukaar/sumika
+    container_name: sumika
+    ports:
+      - "8081:8081"
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - /dev:/dev
+      -  E:\work\Sumika\build-data:/app/build-data
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - TERM=xterm-256color
+      - EXTERNAL_MQTT_BROKER=tcp://mosquitto:1883
+    depends_on:
+      - mosquitto

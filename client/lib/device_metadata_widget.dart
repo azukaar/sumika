@@ -32,6 +32,7 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
   @override
   void didUpdateWidget(DeviceMetadataWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Only reload if the device actually changed (not just object reference)
     if (oldWidget.device.friendlyName != widget.device.friendlyName) {
       _loadDeviceMetadata();
     }
@@ -63,9 +64,11 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
   }
 
   Future<void> _updateCustomName(String newName) async {
-    setState(() {
-      isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
 
     try {
       final service = ref.read(deviceMetadataServiceProvider);
@@ -80,11 +83,11 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
         );
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating device name: $e')),
         );
@@ -93,9 +96,11 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
   }
 
   Future<void> _updateCustomCategory(String newCategory) async {
-    setState(() {
-      isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
 
     try {
       final service = ref.read(deviceMetadataServiceProvider);
@@ -111,11 +116,11 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
         );
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating device category: $e')),
         );

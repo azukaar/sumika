@@ -312,7 +312,7 @@ class DeviceWidget extends ConsumerWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size < 50 ? 12 : 16),
-        child: cleanModel != null
+        child: cleanModel != null && cleanModel.isNotEmpty
             ? Image.network(
                 'https://www.zigbee2mqtt.io/images/devices/$cleanModel.png',
                 fit: BoxFit.cover,

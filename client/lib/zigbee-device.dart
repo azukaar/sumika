@@ -26,10 +26,13 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload devices when returning to this page
-    if (mounted) {
+    // Only reload devices when actually navigating to this page, not when dialogs open
+    final route = ModalRoute.of(context);
+    if (mounted && route != null && route.isCurrent) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(devicesProvider.notifier).loadDevices();
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          ref.read(devicesProvider.notifier).loadDevices();
+        }
       });
     }
   }
@@ -83,15 +86,16 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(left: 16.0),
-                              child:
-                                Image.network(
+                              child: cleanModel != null && cleanModel.isNotEmpty
+                                ? Image.network(
                                   'https://www.zigbee2mqtt.io/images/devices/${cleanModel}.png',
                                   width: 100,
                                   height: 100,
                                   errorBuilder: (context, error, stackTrace) {
                                     return const Icon(Icons.device_unknown); // Fallback icon if image fails to load
                                   },
-                                ),
+                                )
+                                : const Icon(Icons.device_unknown),
                             ),
                             
                             Expanded(
@@ -117,7 +121,7 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                           ],
                         ),
                         ZoneManagementWidget(device: device),
-                        DeviceMetadataWidget(device: device),
+                        DeviceMetadataWidget(key: ValueKey(device.friendlyName), device: device),
                         Column(
                           children: (deviceExposes??[]).map((expose) {
                             return ControlFromZigbeeWidget(expose: expose, device: device);

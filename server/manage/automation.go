@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -61,7 +63,7 @@ var buttonStates = make(map[string]*ButtonPressState)
 
 // Timing constants for button press detection
 const (
-	DoublePressWindow = 500 * time.Millisecond  // Time window to detect double press
+	DoublePressWindow = 600 * time.Millisecond  // Time window to detect double press
 	LongPressDelay    = 800 * time.Millisecond  // Time to wait before triggering long press
 )
 
@@ -497,6 +499,14 @@ func ExecuteSceneBasedAction(action AutomationAction) {
 		fmt.Printf("No light devices found in zone '%s'\n", action.SceneZone)
 		return
 	}
+	
+	// Sort light devices by display name to match dashboard behavior
+	// Dashboard sorts by GetDeviceDisplayName() which returns custom name or friendly name
+	sort.Slice(lightDevices, func(i, j int) bool {
+		displayNameI := GetDeviceDisplayName(lightDevices[i])
+		displayNameJ := GetDeviceDisplayName(lightDevices[j])
+		return strings.Compare(displayNameI, displayNameJ) < 0
+	})
 	
 	fmt.Printf("Found %d light devices in zone '%s' for scene '%s'\n", len(lightDevices), action.SceneZone, action.SceneName)
 	

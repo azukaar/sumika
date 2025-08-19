@@ -77,7 +77,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _loadDashboardDataWithDevices(List<Device> devicesList) async {
     try {
-      // Load all zones
+      // Load all zones (reuse if already loaded in _loadDashboardData)
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
       Map<String, List<Device>> newZoneDevices = {};
       Set<String> assignedDevices = {};
@@ -90,13 +90,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
         for (String deviceName in deviceNames) {
           assignedDevices.add(deviceName); // Track assigned devices
-          final device = devicesList.firstWhere(
-            (d) => d.friendlyName == deviceName,
-            orElse: () =>
-                devicesList.isNotEmpty ? devicesList.first : devicesList.first,
-          );
-          if (devicesList.any((d) => d.friendlyName == deviceName)) {
-            zoneDevicesList.add(device);
+          final deviceIndex = devicesList.indexWhere((d) => d.friendlyName == deviceName);
+          if (deviceIndex != -1) {
+            zoneDevicesList.add(devicesList[deviceIndex]);
           }
         }
         newZoneDevices[zone] = zoneDevicesList;
@@ -124,6 +120,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         _currentPageIndex = 0;
         isLoading = false;
       });
+      
+      // Ensure PageController is synchronized with the reset state
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncPageController();
+      });
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -136,7 +137,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     // Watch for devices provider changes and reload dashboard data
     ref.listen<AsyncValue<List<Device>>>(devicesProvider, (previous, next) {
       next.whenData((devices) {
-        if (mounted) {
+        if (mounted && !isLoading) {  // Prevent reloading during initial load
           _loadDashboardDataWithDevices(devices);
         }
       });
@@ -474,10 +475,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               physics:
                   const AlwaysScrollableScrollPhysics(), // Force scrollability
               onPageChanged: (index) {
-                setState(() {
-                  _currentPageIndex = index;
-                  selectedZone = zones[index];
-                });
+                if (index < zones.length) {  // Safety check
+                  setState(() {
+                    _currentPageIndex = index;
+                    selectedZone = zones[index];
+                  });
+                }
               },
               itemCount: zones.length,
               itemBuilder: (context, index) {
@@ -505,11 +508,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   void _animateToPage(int index) {
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (index >= 0 && index < zones.length) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+  
+  void _syncPageController() {
+    // Ensure PageController is in sync with current state
+    if (_pageController.hasClients && _currentPageIndex < zones.length) {
+      final currentPage = _pageController.page?.round() ?? 0;
+      if (currentPage != _currentPageIndex) {
+        _pageController.animateToPage(
+          _currentPageIndex,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
   }
 
   Widget _buildZoneDevicesGrid(String zone) {

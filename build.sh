@@ -13,7 +13,7 @@ echo " ---- Build complete, copy assets ----"
 
 chmod +x build/sumika
 
-# cp -r static build/
+cp -r server/assets build/assets
 echo '{' > build/meta.json
 # cat package.json | grep -E '"version"' >> build/meta.json
 echo '  "buildDate": "'`date`'",' >> build/meta.json

@@ -300,7 +300,7 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     );
 
     // Listen to connection status
-    _connectionStatusSubscription = _webSocketService.connectionStatus.listen(
+    _connectionStatusSubscription = _webSocketService.connectionState.listen(
       _handleConnectionStatusChange,
       onError: (error) {
         print('[WEBSOCKET] Connection status error: $error');
@@ -312,9 +312,9 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   }
 
   // Handle WebSocket connection status changes
-  void _handleConnectionStatusChange(bool connected) {
-    _webSocketConnected = connected;
-    print('[WEBSOCKET] Connection status changed: $connected');
+  void _handleConnectionStatusChange(WebSocketConnectionState state) {
+    _webSocketConnected = state == WebSocketConnectionState.connected;
+    print('[WEBSOCKET] Connection status changed: $state');
 
     // Adjust sync interval based on connection status
     _syncTimer?.cancel();

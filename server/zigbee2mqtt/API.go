@@ -2,27 +2,26 @@ package zigbee2mqtt
 
 import (
 	"net/http"
-	"encoding/json"
-	"github.com/gorilla/mux"
+	httputil "github.com/azukaar/sumika/server/http"
 )
 
 func API_AllowJoin(w http.ResponseWriter, r *http.Request) {
 	AllowJoin()
-	w.Write([]byte("OK"))
+	httputil.WriteSuccess(w, "Join mode enabled")
 }
 
 func API_ListDevices(w http.ResponseWriter, r *http.Request) {
-	// json send DeviceList
-	DeviceListJSON, _ := json.Marshal(ListDevices())
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(DeviceListJSON)
+	devices := ListDevices()
+	httputil.WriteJSON(w, devices)
 }
 
 func API_SetDeviceState(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	name := vars["device"]
-	state := r.URL.Query().Get("state")
+	name, ok := httputil.GetRequiredPathParam(r, w, "device")
+	if !ok {
+		return
+	}
+	state := httputil.GetQueryParam(r, "state")
 
 	SetDeviceState(name, state)
-	w.Write([]byte("OK"))
+	httputil.WriteSuccess(w, "Device state updated")
 }

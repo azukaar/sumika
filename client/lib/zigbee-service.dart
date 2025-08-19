@@ -18,19 +18,26 @@ class ZigbeeService {
   Future<List<Device>> fetchDevices() async {
     try {
       final url = await baseZigbeeUrl;
+      print('[DEBUG] ZigbeeService: Fetching devices from URL: $url/list_devices');
       final response = await http.get(Uri.parse('$url/list_devices'));
+      print('[DEBUG] ZigbeeService: HTTP response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
+        print('[DEBUG] ZigbeeService: Response body length: ${response.body.length}');
         if (response.body == 'null') {
+          print('[DEBUG] ZigbeeService: Response body is null, returning empty list');
           return [];
         }
         List<dynamic> jsonList = jsonDecode(response.body) as List<dynamic>;
+        print('[DEBUG] ZigbeeService: Parsed ${jsonList.length} devices from JSON');
         return jsonList.map((json) => Device.fromJson(json)).toList();
       } else {
+        print('[DEBUG] ZigbeeService: HTTP error - status: ${response.statusCode}, body: ${response.body}');
         throw Exception('Failed to load devices: ${response.statusCode}');
       }
     } catch (e, stackTrace) {
-      print('Error fetching devices: $e\n$stackTrace');
+      print('[DEBUG] ZigbeeService: Exception fetching devices: $e');
+      print('[DEBUG] ZigbeeService: Stack trace: $stackTrace');
       throw Exception('Error fetching devices: $e');
     }
   }
@@ -125,18 +132,25 @@ class ZigbeeService {
   Future<List<String>> getAllZones() async {
     try {
       final url = await baseUrl;
+      print('[DEBUG] ZigbeeService: Fetching all zones from URL: $url/manage/zones');
       final response = await http.get(
         Uri.parse('$url/manage/zones'),
       );
+      print('[DEBUG] ZigbeeService: Zones HTTP response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
+        print('[DEBUG] ZigbeeService: Zones response body: ${response.body}');
         List<dynamic> jsonList = jsonDecode(response.body) as List<dynamic>;
-        return jsonList.cast<String>();
+        final zones = jsonList.cast<String>();
+        print('[DEBUG] ZigbeeService: Parsed ${zones.length} zones: $zones');
+        return zones;
       } else {
+        print('[DEBUG] ZigbeeService: Zones HTTP error - status: ${response.statusCode}, body: ${response.body}');
         return [];
       }
-    } catch (e) {
-      print('Error getting all zones: $e');
+    } catch (e, stackTrace) {
+      print('[DEBUG] ZigbeeService: Exception getting all zones: $e');
+      print('[DEBUG] ZigbeeService: Stack trace: $stackTrace');
       return [];
     }
   }
@@ -288,6 +302,7 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   // Initialize WebSocket connection and listeners
   void _initializeWebSocket() {
+    print('[DEBUG] DevicesNotifier: Initializing WebSocket...');
     // Connect to WebSocket
     _webSocketService.connect();
 
@@ -295,7 +310,7 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     _deviceUpdateSubscription = _webSocketService.deviceUpdates.listen(
       _handleDeviceUpdate,
       onError: (error) {
-        print('[WEBSOCKET] Device update error: $error');
+        print('[DEBUG] DevicesNotifier: WebSocket device update error: $error');
       },
     );
 
@@ -303,11 +318,12 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     _connectionStatusSubscription = _webSocketService.connectionState.listen(
       _handleConnectionStatusChange,
       onError: (error) {
-        print('[WEBSOCKET] Connection status error: $error');
+        print('[DEBUG] DevicesNotifier: WebSocket connection status error: $error');
       },
     );
 
     // Start with polling (will be adjusted based on WebSocket status)
+    print('[DEBUG] DevicesNotifier: Starting periodic sync...');
     _startPeriodicSync();
   }
 
@@ -402,14 +418,24 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   Future<void> loadDevices() async {
     try {
+      print('[DEBUG] DevicesNotifier: Starting to load devices...');
       state = const AsyncValue.loading();
       final devices = await _service.fetchDevices();
+      print('[DEBUG] DevicesNotifier: Successfully loaded ${devices.length} devices');
       if (mounted) {
         state = AsyncValue.data(devices);
+        print('[DEBUG] DevicesNotifier: State updated with devices data');
+      } else {
+        print('[DEBUG] DevicesNotifier: Widget unmounted, skipping state update');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[DEBUG] DevicesNotifier: Error loading devices: $e');
+      print('[DEBUG] DevicesNotifier: Stack trace: $stackTrace');
       if (mounted) {
-        state = AsyncValue.error(e, StackTrace.current);
+        state = AsyncValue.error(e, stackTrace);
+        print('[DEBUG] DevicesNotifier: State updated with error');
+      } else {
+        print('[DEBUG] DevicesNotifier: Widget unmounted, skipping error state update');
       }
     }
   }

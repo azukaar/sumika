@@ -44,31 +44,43 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Future<void> _loadDashboardData() async {
+    print('[DEBUG] Dashboard: Starting to load dashboard data...');
     setState(() {
       isLoading = true;
     });
 
     try {
       // Load all zones and devices
+      print('[DEBUG] Dashboard: Loading all zones...');
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
+      print('[DEBUG] Dashboard: Loaded ${allZones.length} zones: $allZones');
+      
+      print('[DEBUG] Dashboard: Getting devices async value...');
       final devicesAsyncValue = ref.read(devicesProvider);
+      print('[DEBUG] Dashboard: Devices async value state: ${devicesAsyncValue.runtimeType}');
 
       await devicesAsyncValue.when(
         data: (devicesList) async {
+          print('[DEBUG] Dashboard: Devices data available, ${devicesList.length} devices');
           await _loadDashboardDataWithDevices(devicesList);
         },
         loading: () {
+          print('[DEBUG] Dashboard: Devices still loading...');
           setState(() {
             isLoading = true;
           });
         },
         error: (error, stackTrace) {
+          print('[DEBUG] Dashboard: Devices error: $error');
+          print('[DEBUG] Dashboard: Error stack trace: $stackTrace');
           setState(() {
             isLoading = false;
           });
         },
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[DEBUG] Dashboard: Exception in _loadDashboardData: $e');
+      print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
       });
@@ -77,25 +89,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _loadDashboardDataWithDevices(List<Device> devicesList) async {
     try {
+      print('[DEBUG] Dashboard: Loading dashboard data with ${devicesList.length} devices');
       // Load all zones (reuse if already loaded in _loadDashboardData)
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
+      print('[DEBUG] Dashboard: Got ${allZones.length} zones for processing');
+      
       Map<String, List<Device>> newZoneDevices = {};
       Set<String> assignedDevices = {};
 
       // Process regular zones
       for (String zone in allZones) {
+        print('[DEBUG] Dashboard: Processing zone: $zone');
         List<Device> zoneDevicesList = [];
         final deviceNames =
             await ref.read(devicesProvider.notifier).getDevicesByZone(zone);
+        print('[DEBUG] Dashboard: Zone $zone has ${deviceNames.length} device names: $deviceNames');
 
         for (String deviceName in deviceNames) {
           assignedDevices.add(deviceName); // Track assigned devices
           final deviceIndex = devicesList.indexWhere((d) => d.friendlyName == deviceName);
           if (deviceIndex != -1) {
             zoneDevicesList.add(devicesList[deviceIndex]);
+            print('[DEBUG] Dashboard: Added device $deviceName to zone $zone');
+          } else {
+            print('[DEBUG] Dashboard: WARNING - Device $deviceName not found in devices list');
           }
         }
         newZoneDevices[zone] = zoneDevicesList;
+        print('[DEBUG] Dashboard: Zone $zone final device count: ${zoneDevicesList.length}');
       }
 
       // Add "Others" zone for unassigned devices
@@ -105,6 +126,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           unassignedDevices.add(device);
         }
       }
+      print('[DEBUG] Dashboard: Found ${unassignedDevices.length} unassigned devices');
 
       // Create final zones list with "Others" if there are unassigned devices
       List<String> finalZones = [...allZones];
@@ -112,6 +134,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         finalZones.add("Others");
         newZoneDevices["Others"] = unassignedDevices;
       }
+      print('[DEBUG] Dashboard: Final zones: $finalZones');
 
       setState(() {
         zones = finalZones;
@@ -120,12 +143,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         _currentPageIndex = 0;
         isLoading = false;
       });
+      print('[DEBUG] Dashboard: Dashboard state updated successfully');
       
       // Ensure PageController is synchronized with the reset state
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncPageController();
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[DEBUG] Dashboard: Exception in _loadDashboardDataWithDevices: $e');
+      print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
       });
@@ -136,8 +162,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     // Watch for devices provider changes and reload dashboard data
     ref.listen<AsyncValue<List<Device>>>(devicesProvider, (previous, next) {
+      print('[DEBUG] Dashboard: Devices provider changed, previous: ${previous.runtimeType}, next: ${next.runtimeType}');
       next.whenData((devices) {
-        if (mounted && !isLoading) {  // Prevent reloading during initial load
+        print('[DEBUG] Dashboard: Devices data available in listener, ${devices.length} devices, mounted: $mounted, isLoading: $isLoading');
+        if (mounted) {  // Always process device updates when mounted, regardless of loading state
           _loadDashboardDataWithDevices(devices);
         }
       });

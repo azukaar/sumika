@@ -7,10 +7,12 @@ class ApiConfig {
   static Future<String> get baseUrl async {
     if (kIsWeb) {
       // When running as web app, use relative URLs (same server)
+      print('[DEBUG] ApiConfig: Web platform, using empty base URL');
       return '';
     } else {
       // Cache the URL to avoid multiple SharedPreferences calls
       _cachedBaseUrl ??= await UrlConfigService.getServerUrl();
+      print('[DEBUG] ApiConfig: Native platform, using base URL: $_cachedBaseUrl');
       return _cachedBaseUrl!;
     }
   }

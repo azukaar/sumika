@@ -420,6 +420,10 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     try {
       print('[DEBUG] DevicesNotifier: Starting to load devices...');
       state = const AsyncValue.loading();
+      
+      // Restart WebSocket connection when manually loading devices
+      _webSocketService.restartConnection();
+      
       final devices = await _service.fetchDevices();
       print('[DEBUG] DevicesNotifier: Successfully loaded ${devices.length} devices');
       if (mounted) {

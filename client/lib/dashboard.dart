@@ -334,7 +334,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ],
                   ),
                   child: ElevatedButton.icon(
-                    onPressed: () => _loadDashboardData(),
+                    onPressed: () {
+                      // Restart WebSocket connection on retry
+                      ref.read(webSocketServiceProvider).restartConnection();
+                      _loadDashboardData();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       foregroundColor: Colors.white,

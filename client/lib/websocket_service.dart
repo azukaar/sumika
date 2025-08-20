@@ -214,8 +214,17 @@ class WebSocketService {
   /// Schedule reconnection with exponential backoff
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      _log('Max reconnect attempts reached, giving up');
+      _log('Max reconnect attempts reached, will retry after longer delay');
       _updateConnectionState(WebSocketConnectionState.failed);
+      
+      // Instead of giving up permanently, schedule a retry after a longer delay
+      _reconnectTimer = Timer(const Duration(minutes: 2), () {
+        _log('Retrying connection after extended delay');
+        _reconnectAttempts = 0; // Reset attempts for fresh start
+        if (_connectionState != WebSocketConnectionState.connected) {
+          connect();
+        }
+      });
       return;
     }
 
@@ -305,6 +314,19 @@ class WebSocketService {
     _log('Force reconnecting...');
     disconnect();
     Timer(const Duration(milliseconds: 100), () => connect());
+  }
+
+  /// Restart connection attempts (useful when user manually retries)
+  void restartConnection() {
+    _log('Restarting connection attempts...');
+    _cancelTimers();
+    _reconnectAttempts = 0;
+    
+    // If currently failed, try connecting immediately
+    if (_connectionState == WebSocketConnectionState.failed ||
+        _connectionState == WebSocketConnectionState.disconnected) {
+      connect();
+    }
   }
 
   /// Log messages with proper formatting

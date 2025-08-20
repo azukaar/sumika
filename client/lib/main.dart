@@ -10,6 +10,8 @@ import './onboarding_screen.dart';
 import './system_settings.dart';
 import './scene_management.dart';
 import 'url_config_service.dart';
+import './websocket_service.dart';
+import './zigbee-service.dart';
 
 void main() {
   runApp(
@@ -19,8 +21,80 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
+  
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  DateTime? _lastPausedTime;
+  static const Duration _resumeThreshold = Duration(minutes: 5);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        _lastPausedTime = DateTime.now();
+        break;
+        
+      case AppLifecycleState.resumed:
+        _handleAppResume();
+        break;
+        
+      case AppLifecycleState.detached:
+        break;
+        
+      case AppLifecycleState.hidden:
+        // iOS specific state
+        _lastPausedTime = DateTime.now();
+        break;
+    }
+  }
+
+  void _handleAppResume() {
+    if (_lastPausedTime != null) {
+      final pauseDuration = DateTime.now().difference(_lastPausedTime!);
+      
+      if (pauseDuration >= _resumeThreshold) {
+        print('[LIFECYCLE] App resumed after ${pauseDuration.inMinutes} minutes, reconnecting services');
+        
+        // Restart WebSocket connection
+        try {
+          ref.read(webSocketServiceProvider).restartConnection();
+        } catch (e) {
+          print('[LIFECYCLE] Error restarting WebSocket: $e');
+        }
+        
+        // Reload devices data
+        try {
+          ref.read(devicesProvider.notifier).loadDevices();
+        } catch (e) {
+          print('[LIFECYCLE] Error reloading devices: $e');
+        }
+      } else {
+        print('[LIFECYCLE] App resumed after ${pauseDuration.inSeconds} seconds, no action needed');
+      }
+    }
+    
+    _lastPausedTime = null;
+  }
   
   @override
   Widget build(BuildContext context) {

@@ -2,18 +2,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../zigbee-service.dart';
 import '../types.dart';
 import 'base_async_notifier.dart';
+import 'device_specs_notifier.dart';
 
 class DeviceNotifier extends BaseListAsyncNotifier<Device> {
   final ZigbeeService _service;
+  final Ref _ref;
   
-  DeviceNotifier(this._service);
+  DeviceNotifier(this._service, this._ref);
 
   @override
   String get notifierName => 'DeviceNotifier';
 
   @override
   Future<List<Device>> loadData() async {
-    return _service.fetchDevices();
+    // Fetch devices and also trigger device specs fetch in parallel
+    final devicesFuture = _service.fetchDevices();
+    
+    // Also trigger device specs fetch (fire and forget - it will update its own state)
+    _ref.read(deviceSpecsNotifierProvider.notifier).load();
+    
+    return devicesFuture;
   }
 
   Future<void> setDeviceState(String deviceId, Map<String, dynamic> state) async {
@@ -68,5 +76,5 @@ class DeviceNotifier extends BaseListAsyncNotifier<Device> {
 // Provider for device notifier (using our new consolidated pattern)
 final deviceNotifierProvider = StateNotifierProvider<DeviceNotifier, AsyncValue<List<Device>>>((ref) {
   final service = ref.watch(zigbeeServiceProvider);
-  return DeviceNotifier(service);
+  return DeviceNotifier(service, ref);
 });

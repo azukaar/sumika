@@ -7,6 +7,7 @@ import './controls/controls.dart';
 import './zone-widget.dart';
 import './device_metadata_widget.dart';
 import './utils/device_utils.dart';
+import './state/device_specs_notifier.dart';
 
 class ZigbeeDevicePage extends ConsumerStatefulWidget {
   const ZigbeeDevicePage({super.key});
@@ -185,6 +186,7 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
           device.interviewCompleted ? Icons.check : (device.interviewing ? Icons.hourglass_empty : Icons.close)
         ) : Icons.close;
 
+        // Get original device exposes
         final deviceExposes = device.definition.exposes;
 
         return Scaffold(
@@ -219,13 +221,18 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
               ),
             ],
           ),
-          body: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                devicesState.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (error, stack) => Center(child: Text('Error: $error')),
-                    data: (devices) => Column(
+          body: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                  devicesState.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (error, stack) => Center(child: Text('Error: $error')),
+                      data: (devices) => Column(
                       children: [
                         Row(
                           children: [
@@ -267,16 +274,78 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                         ),
                         ZoneManagementWidget(device: device),
                         DeviceMetadataWidget(key: ValueKey(device.friendlyName), device: device),
-                        Column(
-                          children: (deviceExposes??[]).map((expose) {
-                            return ControlFromZigbeeWidget(expose: expose, device: device);
-                          }).toList(),
+                        // Device Controls Card
+                        Container(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          margin: const EdgeInsets.all(16.0),
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (deviceExposes != null && deviceExposes.isNotEmpty) ...[
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.settings_input_component,
+                                          color: Theme.of(context).colorScheme.primary,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Device Controls',
+                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // Show original device exposes
+                                    ...deviceExposes.map((expose) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 12.0),
+                                        child: ControlFromZigbeeWidget(expose: expose, device: device),
+                                      );
+                                    }).toList(),
+                                  ] else ...[
+                                    Center(
+                                      child: Column(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            color: Theme.of(context).colorScheme.secondary,
+                                            size: 48,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'No controls available for this device',
+                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              color: Theme.of(context).colorScheme.secondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
+          ),
         );
       },
       loading: () => const CircularProgressIndicator(),

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import './websocket_service.dart';
 import 'api_config.dart';
+import './state/device_specs_notifier.dart';
 
 class ZigbeeService {
   static Future<String> get baseZigbeeUrl => ApiConfig.zigbeeApiUrl;
@@ -39,6 +40,39 @@ class ZigbeeService {
       print('[DEBUG] ZigbeeService: Exception fetching devices: $e');
       print('[DEBUG] ZigbeeService: Stack trace: $stackTrace');
       throw Exception('Error fetching devices: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchDeviceSpecifications() async {
+    try {
+      final url = await ApiConfig.manageApiUrl;
+      print('[DEBUG] ZigbeeService: Fetching device specifications from URL: $url/devices');
+      final response = await http.get(Uri.parse('$url/devices'));
+      print('[DEBUG] ZigbeeService: Device specs HTTP response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        print('[DEBUG] ZigbeeService: Device specs response body length: ${response.body.length}');
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> devices = jsonResponse['devices'] ?? [];
+        
+        // Convert to a map keyed by device IEEE address for easy lookup
+        Map<String, dynamic> deviceSpecsMap = {};
+        for (var device in devices) {
+          if (device['ieee_address'] != null) {
+            deviceSpecsMap[device['ieee_address']] = device;
+          }
+        }
+        
+        print('[DEBUG] ZigbeeService: Processed ${deviceSpecsMap.length} device specifications');
+        return deviceSpecsMap;
+      } else {
+        print('[DEBUG] ZigbeeService: Device specs HTTP error - status: ${response.statusCode}, body: ${response.body}');
+        throw Exception('Failed to load device specifications: ${response.statusCode}');
+      }
+    } catch (e, stackTrace) {
+      print('[DEBUG] ZigbeeService: Exception fetching device specifications: $e');
+      print('[DEBUG] ZigbeeService: Stack trace: $stackTrace');
+      throw Exception('Error fetching device specifications: $e');
     }
   }
 
@@ -299,6 +333,7 @@ class ZigbeeService {
 class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   final ZigbeeService _service;
   final WebSocketService _webSocketService;
+  final Ref _ref;
   Timer? _syncTimer;
   final Duration _syncInterval = const Duration(seconds: 10);
   final Duration _fallbackSyncInterval =
@@ -308,7 +343,7 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   StreamSubscription? _connectionStatusSubscription;
   bool _webSocketConnected = false;
 
-  DevicesNotifier(this._service, this._webSocketService)
+  DevicesNotifier(this._service, this._webSocketService, this._ref)
       : super(const AsyncValue.loading()) {
     loadDevices();
     _initializeWebSocket();
@@ -439,6 +474,10 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
       _webSocketService.restartConnection();
       
       final devices = await _service.fetchDevices();
+      
+      // Also trigger device specs fetch (fire and forget - it will update its own state)
+      _ref.read(deviceSpecsNotifierProvider.notifier).load();
+      
       print('[DEBUG] DevicesNotifier: Successfully loaded ${devices.length} devices');
       if (mounted) {
         state = AsyncValue.data(devices);
@@ -615,6 +654,7 @@ final devicesProvider =
   (ref) => DevicesNotifier(
     ref.watch(zigbeeServiceProvider),
     ref.watch(webSocketServiceProvider),
+    ref,
   ),
 );
 

@@ -44,8 +44,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./
 # Stage 3: Create the final image
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates libc6-compat
+# Install runtime dependencies including Node.js for device metadata script
+RUN apk add --no-cache ca-certificates libc6-compat nodejs npm
 
 # Create a non-root user to run the app
 RUN adduser -D appuser
@@ -61,6 +61,14 @@ COPY --from=flutter_builder /app/client/build/web /app/web
 
 # Copy server assets (scene images, etc.) from the Go builder stage
 COPY --from=go_builder /app/server/assets /app/assets
+
+# Copy device metadata script and install dependencies
+COPY device-metadata-script/ /app/device-metadata-script/
+USER root
+WORKDIR /app/device-metadata-script
+RUN npm install --production
+WORKDIR /app
+USER appuser
 
 # Expose the port the server listens on
 EXPOSE 8081

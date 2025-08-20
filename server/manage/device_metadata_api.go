@@ -2,6 +2,11 @@ package manage
 
 import (
 	"net/http"
+	"github.com/azukaar/sumika/server/errors"
+	"fmt"
+	httpUtils "github.com/azukaar/sumika/server/http"
+	"github.com/azukaar/sumika/server/utils"
+	"time"
 
 	httputil "github.com/azukaar/sumika/server/http"
 )
@@ -90,4 +95,139 @@ func API_GetDeviceMetadata(w http.ResponseWriter, r *http.Request) {
 func API_GetAllDeviceCategories(w http.ResponseWriter, r *http.Request) {
 	categories := GetAllDeviceCategories()
 	httputil.WriteJSON(w, categories)
+}
+
+// DeviceMetadataAPI handles device metadata requests
+type DeviceMetadataAPI struct {
+	metadataService *utils.DeviceMetadataService
+	errorHandler    *errors.ErrorHandler
+}
+
+// NewDeviceMetadataAPI creates a new device metadata API handler
+func NewDeviceMetadataAPI() *DeviceMetadataAPI {
+	return &DeviceMetadataAPI{
+		metadataService: utils.NewDeviceMetadataService(),
+		errorHandler:    errors.NewErrorHandler(false),
+	}
+}
+
+// API_GetDeviceSpec retrieves device specifications from zigbee-herdsman-converters
+func (api *DeviceMetadataAPI) API_GetDeviceSpec(w http.ResponseWriter, r *http.Request) {
+	modelID := r.URL.Query().Get("model_id")
+	manufacturerName := r.URL.Query().Get("manufacturer")
+	
+	if modelID == "" || manufacturerName == "" {
+		api.errorHandler.HandleError(w, r, 
+			errors.NewValidationError("model_id and manufacturer are required", nil), 
+			"missing_parameters")
+		return
+	}
+	
+	metadata, err := api.metadataService.GetDeviceMetadata(modelID, manufacturerName)
+	if err != nil {
+		api.errorHandler.HandleError(w, r, err, "get_metadata")
+		return
+	}
+	
+	httpUtils.WriteJSON(w, metadata)
+}
+
+// API_GetDeviceSpecByModel retrieves device specifications by exact model ID
+func (api *DeviceMetadataAPI) API_GetDeviceSpecByModel(w http.ResponseWriter, r *http.Request) {
+	model, err := errors.GetPathParam(r, "model")
+	if err != nil {
+		api.errorHandler.HandleError(w, r, err, "extract_model")
+		return
+	}
+	
+	metadata, err2 := api.metadataService.GetDeviceByModel(model)
+	if err2 != nil {
+		api.errorHandler.HandleError(w, r, errors.NewInternalError("Failed to get device metadata", err2), "get_by_model")
+		return
+	}
+	
+	httpUtils.WriteJSON(w, metadata)
+}
+
+// API_IdentifyDevice identifies a device and returns its specifications
+func (api *DeviceMetadataAPI) API_IdentifyDevice(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		ModelID          string `json:"model_id"`
+		ManufacturerName string `json:"manufacturer_name"`
+		ManufacturerID   string `json:"manufacturer_id,omitempty"`
+		Type             string `json:"type,omitempty"`
+	}
+	
+	if err := errors.ParseJSONBody(r, &request); err != nil {
+		api.errorHandler.HandleError(w, r, err, "parse_request")
+		return
+	}
+	
+	validator := errors.NewValidator()
+	errors.ValidateRequired(validator, "model_id", request.ModelID)
+	errors.ValidateRequired(validator, "manufacturer_name", request.ManufacturerName)
+	
+	if err := validator.ToAppError(); err != nil {
+		api.errorHandler.HandleError(w, r, err, "validation")
+		return
+	}
+	
+	metadata, err := api.metadataService.GetDeviceMetadata(request.ModelID, request.ManufacturerName)
+	if err != nil {
+		api.errorHandler.HandleError(w, r, err, "identify_device")
+		return
+	}
+	
+	httpUtils.WriteJSON(w, metadata)
+}
+
+// API_GetAllDevicesWithSpecs retrieves all devices from local storage with their specifications
+func (api *DeviceMetadataAPI) API_GetAllDevicesWithSpecs(w http.ResponseWriter, r *http.Request) {
+	devices := GetDeviceCache()
+	fmt.Printf("[DEBUG] DeviceMetadataAPI: Retrieved %d devices from cache\n", len(devices))
+	
+	enrichedDevices, err := api.metadataService.GetBulkDeviceMetadata(devices)
+	if err != nil {
+		fmt.Printf("[DEBUG] DeviceMetadataAPI: Error processing bulk metadata: %v\n", err)
+		api.errorHandler.HandleError(w, r, 
+			errors.NewInternalError("Failed to process device metadata", err), 
+			"process_bulk_metadata")
+		return
+	}
+	fmt.Printf("[DEBUG] DeviceMetadataAPI: Successfully enriched %d devices\n", len(enrichedDevices))
+	
+	httpUtils.WriteJSON(w, map[string]interface{}{
+		"count":     len(enrichedDevices),
+		"devices":   enrichedDevices,
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+}
+
+// API_GetSpecVersion returns zigbee-herdsman-converters version information
+func (api *DeviceMetadataAPI) API_GetSpecVersion(w http.ResponseWriter, r *http.Request) {
+	version, err := api.metadataService.GetVersion()
+	if err != nil {
+		api.errorHandler.HandleError(w, r, err, "get_version")
+		return
+	}
+	
+	httpUtils.WriteJSON(w, version)
+}
+
+// API_ClearSpecCache clears the device specifications cache
+func (api *DeviceMetadataAPI) API_ClearSpecCache(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		httpUtils.WriteJSON(w, map[string]string{
+			"error": "Method not allowed. Only POST is supported.",
+		})
+		return
+	}
+	
+	api.metadataService.ClearCache()
+	
+	httpUtils.WriteJSON(w, map[string]string{
+		"status":  "success",
+		"message": "Device specifications cache cleared",
+	})
 }

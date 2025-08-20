@@ -920,6 +920,36 @@ GestureDetector(
 )
 ```
 
+**Device Metadata Integration:**
+- Uses Node.js script with zigbee-herdsman-converters v25.5.0 for enhanced metadata
+- Go backend executes Node script via command-line interface
+- Results cached for 24 hours to improve performance
+- Provides rich device definitions, exposes metadata, and configuration options
+
+```go
+// Get enhanced metadata for a device
+metadataService := utils.NewDeviceMetadataService()
+metadata, err := metadataService.GetDeviceMetadata(modelID, manufacturerName)
+if err != nil {
+    // Handle error
+}
+// Use metadata.Exposes for rich control information
+```
+
+**Device Specifications API Endpoints:**
+- `GET /api/manage/device-specs?model_id=X&manufacturer=Y` - Get device specifications
+- `GET /api/manage/device-specs/model/{model}` - Get specifications by model ID  
+- `POST /api/manage/device-specs/identify` - Identify device and get specifications
+- `GET /api/manage/device-specs/version` - Get zigbee-herdsman-converters version info
+- `POST /api/manage/device-specs/cache/clear` - Clear specifications cache
+- `GET /api/manage/devices` - Get all devices from local storage with their specifications
+
+**Device Metadata API Endpoints:**
+- `GET /api/manage/device/{device}/metadata` - Get device metadata (custom names, categories)
+- `PUT /api/manage/device/{device}/custom_name` - Set device custom name
+- `PUT /api/manage/device/{device}/custom_category` - Set device custom category
+- `GET /api/manage/device_categories` - Get all available device categories
+
 ---
 
 ## API Design

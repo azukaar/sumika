@@ -72,6 +72,15 @@ func main() {
 		r.HandleFunc("/api/manage/device/{device}/custom_category", manage.API_SetDeviceCustomCategory).Methods("PUT")
 		r.HandleFunc("/api/manage/device_categories", manage.API_GetAllDeviceCategories).Methods("GET")
 		
+		// Device specifications endpoints (from zigbee-herdsman-converters)
+		specAPI := manage.NewDeviceMetadataAPI()
+		r.HandleFunc("/api/manage/device-specs", specAPI.API_GetDeviceSpec).Methods("GET")
+		r.HandleFunc("/api/manage/device-specs/model/{model}", specAPI.API_GetDeviceSpecByModel).Methods("GET")
+		r.HandleFunc("/api/manage/device-specs/identify", specAPI.API_IdentifyDevice).Methods("POST")
+		r.HandleFunc("/api/manage/device-specs/version", specAPI.API_GetSpecVersion).Methods("GET")
+		r.HandleFunc("/api/manage/device-specs/cache/clear", specAPI.API_ClearSpecCache).Methods("POST")
+		r.HandleFunc("/api/manage/devices", specAPI.API_GetAllDevicesWithSpecs).Methods("GET")
+		
 		// Zone-based automation endpoints
 		r.HandleFunc("/api/manage/zones_categories", manage.API_GetZonesAndCategories).Methods("GET")
 		r.HandleFunc("/api/manage/zone/{zone}/categories", manage.API_GetZoneCategories).Methods("GET")

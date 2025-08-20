@@ -75,7 +75,7 @@ abstract class BaseAsyncNotifier<T> extends StateNotifier<AsyncValue<T>> {
     
     try {
       if (showLoading && mounted) {
-        state = AsyncValue.loading(data: state.value);
+        state = AsyncValue.loading();
       }
       
       _log('Executing operation...');

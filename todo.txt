@@ -1,5 +1,4 @@
 # dashboard
-
 - !Allow pining device property for dashboard manually rather than auto selecting
 - !Weather / clock supercards for dashboard
 - Toggle supercard per zones

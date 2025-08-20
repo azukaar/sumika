@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import './utils.dart';
 import '../zigbee-service.dart';
+import '../state/device_specs_notifier.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:interactive_slider/interactive_slider.dart';
 import 'package:flutter/foundation.dart';
@@ -39,15 +40,52 @@ class _NumericControlState extends ConsumerState<NumericControl> {
   @override
   Widget build(BuildContext context) {
     final devicesState = ref.watch(devicesProvider);
+    final deviceSpecs = ref.watch(deviceSpecsProvider(widget.device.ieeeAddress));
 
     final prop = widget.expose['property'] as String;
     final access = widget.expose['access'];
     final name = widget.expose['name'];
     final label = widget.expose['label'];
     var value = _value;
+    
+    // Cross-reference enhanced metadata for this property
+    String? enhancedUnit;
+    String? enhancedDescription;
+    if (deviceSpecs?['enhanced_metadata'] != null) {
+      final enhancedExposes = deviceSpecs!['enhanced_metadata']['exposes'] as List<dynamic>?;
+      if (enhancedExposes != null) {
+        for (final enhancedExpose in enhancedExposes) {
+          if (enhancedExpose is Map<String, dynamic> && 
+              enhancedExpose['property'] == prop) {
+            enhancedUnit = enhancedExpose['unit']?.toString();
+            enhancedDescription = enhancedExpose['description']?.toString();
+            break;
+          }
+        }
+      }
+    }
 
     if (access == 1 || access == 5) {
-      return Text('$label: $value');
+      // Read-only display with unit and optional description tooltip
+      final displayText = enhancedUnit != null 
+          ? '$label: $value $enhancedUnit' 
+          : '$label: $value';
+          
+      if (enhancedDescription != null && enhancedDescription!.isNotEmpty) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(displayText),
+            const SizedBox(width: 4),
+            Tooltip(
+              message: enhancedDescription!,
+              child: const Icon(Icons.help_outline, size: 16, color: Colors.grey),
+            ),
+          ],
+        );
+      } else {
+        return Text(displayText);
+      }
     } else {
       final minValue = (widget.expose['value_min'] ?? 0).toDouble();
       final maxValue = (widget.expose['value_max'] ?? 100).toDouble();
@@ -59,7 +97,8 @@ class _NumericControlState extends ConsumerState<NumericControl> {
         value = maxValue;
       }
 
-      return getSlider(widget.expose, value, hideIcons: widget.hideIcons, hideLabel: widget.hideLabel, onChanged: (double newValue) {
+      return getSlider(widget.expose, value, hideIcons: widget.hideIcons, hideLabel: widget.hideLabel, 
+          enhancedUnit: enhancedUnit, enhancedDescription: enhancedDescription, onChanged: (double newValue) {
         // var newValue = _newValue * speadValue + minValue;
 
         // state in json
@@ -81,7 +120,7 @@ class _NumericControlState extends ConsumerState<NumericControl> {
   }
 }
 
-Widget getSlider(Map<String, dynamic> expose, dynamic value, {required Function(double) onChanged, bool hideIcons = false, bool hideLabel = false}) {
+Widget getSlider(Map<String, dynamic> expose, dynamic value, {required Function(double) onChanged, bool hideIcons = false, bool hideLabel = false, String? enhancedUnit, String? enhancedDescription}) {
   final minValue = (expose['value_min'] ?? 0).toDouble();
   final maxValue = (expose['value_max'] ?? 100).toDouble();
 
@@ -108,9 +147,34 @@ Widget getSlider(Map<String, dynamic> expose, dynamic value, {required Function(
       endIcon = Icon(Icons.add);
   };
 
+  // Create enhanced label with unit and description tooltip
+  Widget labelWidget;
+  if (hideLabel) {
+    labelWidget = const SizedBox();
+  } else {
+    final label = expose['label'] ?? expose['name'] ?? expose['property'];
+    final labelText = enhancedUnit != null ? '$label ($enhancedUnit)' : label;
+    
+    if (enhancedDescription != null && enhancedDescription!.isNotEmpty) {
+      labelWidget = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(labelText),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: enhancedDescription!,
+            child: const Icon(Icons.help_outline, size: 16, color: Colors.grey),
+          ),
+        ],
+      );
+    } else {
+      labelWidget = Text(labelText);
+    }
+  }
+  
   return Column(
     children: [
-      hideLabel ? SizedBox() : (kReleaseMode ? SizedBox() : Text(expose['label'])),
+      labelWidget,
       _UpdatableSlider(
         value: value.toDouble(),
         onChanged: onChanged,

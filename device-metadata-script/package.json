@@ -1,0 +1,15 @@
+{
+  "name": "device-metadata-script",
+  "version": "1.0.0",
+  "description": "CLI script to get Zigbee device metadata from zigbee-herdsman-converters",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "zigbee-herdsman-converters": "^25.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

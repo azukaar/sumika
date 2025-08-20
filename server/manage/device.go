@@ -131,6 +131,40 @@ func ClearDeviceCache() {
 	SaveToStorage()
 }
 
+// RemoveDevice removes a device from cache and all associated data
+func RemoveDevice(deviceName string) bool {
+	deviceFound := false
+	
+	// Remove from device cache
+	newCache := []map[string]interface{}{}
+	for _, device := range deviceCache {
+		if friendlyName, exists := device["friendly_name"]; exists && friendlyName == deviceName {
+			deviceFound = true
+			continue // Skip this device (remove it)
+		}
+		newCache = append(newCache, device)
+	}
+	deviceCache = newCache
+	
+	// Remove from zone assignments
+	if deviceZones, exists := zones[deviceName]; exists && len(deviceZones) > 0 {
+		delete(zones, deviceName)
+		deviceFound = true
+	}
+	
+	// Remove device metadata
+	if RemoveDeviceMetadata(deviceName) {
+		deviceFound = true
+	}
+	
+	// Save to storage after modification
+	if deviceFound {
+		SaveToStorage()
+	}
+	
+	return deviceFound
+}
+
 // GetUnassignedDevices returns devices that are not assigned to any zone
 func GetUnassignedDevices(allDevices []string) []string {
 	var unassigned []string

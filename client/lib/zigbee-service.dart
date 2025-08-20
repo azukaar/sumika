@@ -272,6 +272,20 @@ class ZigbeeService {
     }
   }
 
+  Future<bool> removeDevice(String deviceId) async {
+    try {
+      final url = await baseZigbeeUrl;
+      final response = await http.delete(
+        Uri.parse('$url/remove/${Uri.encodeComponent(deviceId)}'),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error removing device: $e');
+      return false;
+    }
+  }
+
   // Clean up method to cancel any pending timers
   void dispose() {
     for (var timer in _debounceTimers.values) {
@@ -578,6 +592,15 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
         await _service.setDeviceMetadata(deviceId, customName, customCategory);
     if (success) {
       // Refresh devices to show updated metadata
+      loadDevices();
+    }
+    return success;
+  }
+
+  Future<bool> removeDevice(String deviceId) async {
+    final success = await _service.removeDevice(deviceId);
+    if (success) {
+      // Refresh devices to remove deleted device
       loadDevices();
     }
     return success;

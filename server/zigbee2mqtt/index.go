@@ -34,6 +34,15 @@ func AllowJoin() {
 	MQTT.Publish("zb2m-sumika/bridge/request/permit_join", toJSON(payload))
 }
 
+func RemoveDevice(deviceName string) {
+	// First remove from Zigbee2MQTT via MQTT bridge command
+	payload := map[string]interface{}{
+		"id": deviceName,
+	}
+	MQTT.Publish("zb2m-sumika/bridge/request/device/remove", toJSON(payload))
+	fmt.Printf("[MQTT] Requested removal of device: %s from Zigbee2MQTT\n", deviceName)
+}
+
 var DeviceList []Device
 
 func Init() {
@@ -124,15 +133,77 @@ func GetDeviceState(deviceName string) map[string]interface{} {
 }
 
 func updateDeviceCache() {
-	// Convert DeviceList to cache format and save to device cache
-	deviceCache := make([]map[string]interface{}, len(DeviceList))
-	for i, device := range DeviceList {
+	// Get existing cache to merge with
+	existingCache := manage.GetDeviceCache()
+	fmt.Printf("[CACHE] Merging %d Zigbee2MQTT devices with %d existing cached devices\n", len(DeviceList), len(existingCache))
+	
+	// Convert new DeviceList to map for easy lookup by friendly_name
+	newDevicesMap := make(map[string]map[string]interface{})
+	for _, device := range DeviceList {
 		deviceData, _ := json.Marshal(device)
 		var deviceMap map[string]interface{}
 		json.Unmarshal(deviceData, &deviceMap)
-		deviceCache[i] = deviceMap
+		
+		if friendlyName, exists := deviceMap["friendly_name"]; exists {
+			if name, ok := friendlyName.(string); ok {
+				newDevicesMap[name] = deviceMap
+			}
+		}
 	}
-	manage.SetDeviceCache(deviceCache)
+	
+	// Merge logic: preserve non-Zigbee devices, update Zigbee devices
+	mergedCache := []map[string]interface{}{}
+	
+	// First, add all devices from existing cache
+	for _, existingDevice := range existingCache {
+		if friendlyName, exists := existingDevice["friendly_name"]; exists {
+			if name, ok := friendlyName.(string); ok {
+				if newDevice, inNewList := newDevicesMap[name]; inNewList {
+					// Device exists in both - merge them
+					mergedDevice := mergeDevice(existingDevice, newDevice)
+					mergedCache = append(mergedCache, mergedDevice)
+					delete(newDevicesMap, name) // Mark as processed
+					fmt.Printf("[CACHE] Updated existing device: %s\n", name)
+				} else {
+						mergedCache = append(mergedCache, existingDevice)
+				}
+			}
+		}
+	}
+	
+	// Add any new devices not in existing cache
+	for name, newDevice := range newDevicesMap {
+		fmt.Printf("[CACHE] Adding new Zigbee device: %s\n", name)
+		mergedCache = append(mergedCache, newDevice)
+	}
+	
+	fmt.Printf("[CACHE] Final merged cache has %d devices\n", len(mergedCache))
+	manage.SetDeviceCache(mergedCache)
+}
+
+// Helper function to merge existing device data with new Zigbee2MQTT data
+func mergeDevice(existing, new map[string]interface{}) map[string]interface{} {
+	// Start with new device data as base (has latest Zigbee2MQTT info)
+	merged := make(map[string]interface{})
+	for k, v := range new {
+		merged[k] = v
+	}
+	
+	// Preserve certain fields from existing device if they exist
+	preserveFields := []string{
+		"zones",           // Zone assignments
+		"custom_name",     // Custom display name
+		"custom_category", // Custom category
+		"server_metadata", // Any server-specific metadata
+	}
+	
+	for _, field := range preserveFields {
+		if existingValue, exists := existing[field]; exists {
+			merged[field] = existingValue
+		}
+	}
+	
+	return merged
 }
 
 func SaveUpdates() {

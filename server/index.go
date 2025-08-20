@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 
@@ -44,6 +45,7 @@ func main() {
 		r.HandleFunc("/api/zigbee2mqtt/allow_join", zigbee2mqtt.API_AllowJoin)
 		r.HandleFunc("/api/zigbee2mqtt/list_devices", zigbee2mqtt.API_ListDevices)
 		r.HandleFunc("/api/zigbee2mqtt/set/{device}", zigbee2mqtt.API_SetDeviceState)
+		r.HandleFunc("/api/zigbee2mqtt/remove/{device}", zigbee2mqtt.API_RemoveDevice).Methods("DELETE")
 
 		r.HandleFunc("/api/manage/get-by-zone/{zone}", manage.API_GetDeviceByZone)
 		r.HandleFunc("/api/manage/set-zones/{device}", manage.API_SetDeviceZones).Methods("POST")
@@ -95,14 +97,23 @@ func main() {
 		r.HandleFunc("/ws", realtime.HandleWebSocket)
 		
 		// Serve scene images
-		assetsDir := "./assets"
+		var webDir string
+		var assetsDir string
+
+		exePath, err := os.Executable()
+		if err != nil {
+			fmt.Println("Warning: Could not determine executable path, using relative ./assets")
+			assetsDir = "./assets"
+			webDir = "./web"
+		} else {
+			assetsDir = fmt.Sprintf("%s/assets", filepath.Dir(exePath))
+			webDir = fmt.Sprintf("%s/web", filepath.Dir(exePath))
+		}
+
 		if _, err := os.Stat(assetsDir); err == nil {
 			fmt.Println("Serving server assets from", assetsDir)
 			r.PathPrefix("/server-assets/").Handler(http.StripPrefix("/server-assets/", http.FileServer(http.Dir(assetsDir))))
 		}
-		
-		// Serve Flutter web app
-		webDir := "./web"
 		if _, err := os.Stat(webDir); err == nil {
 			fmt.Println("Serving Flutter web app from", webDir)
 			r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(webDir))))

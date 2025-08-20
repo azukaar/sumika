@@ -17,10 +17,133 @@ class ZigbeeDevicePage extends ConsumerStatefulWidget {
 
 class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
   String _responseData = 'No data yet';
+  bool _isDeletingDevice = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, Device device) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Forget Device'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Are you sure you want to forget "${DeviceUtils.getDeviceDisplayName(device)}"?'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning, color: Colors.orange, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Warning',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'This will permanently remove the device from both the server and Zigbee2MQTT. '
+                      'You will need to re-pair the device if you want to use it again.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isDeletingDevice ? null : () => _deleteDevice(context, device),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: _isDeletingDevice
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Forget Device'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteDevice(BuildContext context, Device device) async {
+    setState(() {
+      _isDeletingDevice = true;
+    });
+
+    try {
+      final success = await ref.read(devicesProvider.notifier).removeDevice(device.friendlyName);
+      
+      if (mounted) {
+        Navigator.of(context).pop(); // Close dialog
+        
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Device "${DeviceUtils.getDeviceDisplayName(device)}" has been forgotten'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate back to device list
+          Navigator.of(context).pop();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to forget device. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingDevice = false;
+        });
+      }
+    }
   }
 
   @override
@@ -71,6 +194,28 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => ref.read(devicesProvider.notifier).loadDevices(),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _showDeleteConfirmationDialog(context, device);
+                  }
+                },
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_forever, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text(
+                          'Forget Device',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

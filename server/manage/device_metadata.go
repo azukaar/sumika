@@ -226,3 +226,13 @@ func GetDeviceMetadata(deviceName string) (map[string]string, bool) {
 	metadata, exists := deviceMetadata[deviceName]
 	return metadata, exists
 }
+
+// RemoveDeviceMetadata removes all metadata for a specific device
+func RemoveDeviceMetadata(deviceName string) bool {
+	if _, exists := deviceMetadata[deviceName]; exists {
+		delete(deviceMetadata, deviceName)
+		SaveToStorage()
+		return true
+	}
+	return false
+}

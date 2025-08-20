@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import '../zigbee-service.dart';
@@ -46,7 +47,10 @@ class SceneSupercard extends ConsumerWidget {
         ],
       ),
       child: GestureDetector(
-        onLongPress: () => _showAllScenesModal(context),
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          _showAllScenesModal(context);
+        },
         onSecondaryTap: () => _showAllScenesModal(context),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -174,7 +178,10 @@ class SceneSupercard extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _applyScene(ref, scene, context),
+          onTap: () {
+            HapticFeedback.selectionClick(); // Haptic feedback for scene selection
+            _applyScene(ref, scene, context);
+          },
           borderRadius: BorderRadius.circular(12),
           child: FutureBuilder<String>(
             future: scene.imageUrl,

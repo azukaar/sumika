@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import './utils.dart';
@@ -183,6 +184,8 @@ class _UpdatableSliderState extends State<_UpdatableSlider> {
 
     final slider = GestureDetector(
       onTap: () {
+        HapticFeedback.mediumImpact(); // Haptic feedback for slider min/max toggle
+        
         // Toggle logic: go to 0 if current value > 0, otherwise go to max
         final currentValue = _lastKnownValue ?? widget.value;
         final newValue = currentValue > widget.min ? widget.min : widget.max;

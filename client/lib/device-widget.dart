@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './types.dart';
 import './controls/controls.dart';
@@ -68,7 +69,10 @@ class DeviceWidget extends ConsumerWidget {
       ),
       child: GestureDetector(
         onSecondaryTap: onTap, // Right click
-        onLongPress: onTap, // Long press
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          onTap?.call();
+        }, // Long press with haptic feedback
         child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

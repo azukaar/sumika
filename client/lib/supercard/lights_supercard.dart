@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import '../controls/master_control.dart';
@@ -45,7 +46,10 @@ class LightsSupercard extends StatelessWidget {
       ),
       child: GestureDetector(
         onSecondaryTap: () => _showLightsControlModal(context, lightDevices), // Right click
-        onLongPress: () => _showLightsControlModal(context, lightDevices),    // Long press
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          _showLightsControlModal(context, lightDevices);
+        }, // Long press with haptic feedback
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(

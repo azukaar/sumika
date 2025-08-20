@@ -895,8 +895,16 @@ const double spacingXXL = 48.0; // 6x
 - All interactive cards must use `CardInteractionIndicator` widget
 - Consistent messaging: "Hold or right-click to [action]"
 - Universal support for both desktop (right-click) and mobile (long press)
-- Platform-appropriate tooltips that work on all devices
+- Platform-optimized tooltips:
+  - Desktop: Show on hover
+  - Mobile: Show on tap for better UX (separate from long press action)
 - Standard `touch_app_rounded` icon with consistent styling
+
+**Haptic Feedback Standards:**
+- Card long press: `HapticFeedback.mediumImpact()` - Substantial feedback for modal/expansion actions
+- Switch toggles: `HapticFeedback.lightImpact()` - Light feedback for binary state changes
+- Scene selection: `HapticFeedback.selectionClick()` - Precise feedback for selections
+- Slider min/max toggle: `HapticFeedback.mediumImpact()` - Clear feedback for significant value jumps
 
 ```dart
 // Standard pattern for interactive cards

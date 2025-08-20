@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import './utils.dart';
@@ -78,6 +79,8 @@ class _BoolControlState extends ConsumerState<BoolControl> {
             Switch(
               value: value,
               onChanged: (bool newValue) {
+                HapticFeedback.lightImpact(); // Haptic feedback for switch toggle
+                
                 var jsonState = Map<String, dynamic>.from({
                   prop: convertToString(newValue),
                 });

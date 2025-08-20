@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 /// - Universal tooltip that works on both mobile and desktop
 /// - Platform-appropriate messaging
 /// - Consistent styling and positioning
-class CardInteractionIndicator extends StatelessWidget {
+class CardInteractionIndicator extends StatefulWidget {
   final String? customTooltip;
   final Color? iconColor;
   final double iconSize;
@@ -23,28 +23,57 @@ class CardInteractionIndicator extends StatelessWidget {
   });
 
   @override
+  State<CardInteractionIndicator> createState() => _CardInteractionIndicatorState();
+}
+
+class _CardInteractionIndicatorState extends State<CardInteractionIndicator> {
+  final GlobalKey<TooltipState> _tooltipKey = GlobalKey<TooltipState>();
+
+  @override
   Widget build(BuildContext context) {
     // Platform-appropriate tooltip message
-    final tooltipMessage = customTooltip ?? _getDefaultTooltipMessage();
+    final tooltipMessage = widget.customTooltip ?? _getDefaultTooltipMessage();
+    final isMobile = !kIsWeb && 
+        (defaultTargetPlatform == TargetPlatform.android ||
+         defaultTargetPlatform == TargetPlatform.iOS);
     
-    return Tooltip(
-      message: tooltipMessage,
-      preferBelow: false, // Show above on mobile for better visibility
-      waitDuration: const Duration(milliseconds: 500),
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          Icons.touch_app_rounded, // Universal "touch/interact" icon
-          size: iconSize,
-          color: iconColor ?? 
-                Theme.of(context).colorScheme.primary.withOpacity(0.7),
-        ),
+    final iconWidget = Container(
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.touch_app_rounded, // Universal "touch/interact" icon
+        size: widget.iconSize,
+        color: widget.iconColor ?? 
+              Theme.of(context).colorScheme.primary.withOpacity(0.7),
       ),
     );
+
+    if (isMobile) {
+      // On mobile, show tooltip on tap for better UX
+      return GestureDetector(
+        onTap: () {
+          _tooltipKey.currentState?.ensureTooltipVisible();
+        },
+        child: Tooltip(
+          key: _tooltipKey,
+          message: tooltipMessage,
+          preferBelow: false,
+          waitDuration: Duration.zero, // Show immediately when triggered
+          child: iconWidget,
+        ),
+      );
+    } else {
+      // On desktop, use default tooltip behavior (hover)
+      return Tooltip(
+        message: tooltipMessage,
+        preferBelow: false,
+        waitDuration: const Duration(milliseconds: 500),
+        child: iconWidget,
+      );
+    }
   }
 
   String _getDefaultTooltipMessage() {

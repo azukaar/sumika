@@ -1,14 +1,49 @@
+# dashboard
 
 - Allow pining device property for dashboard manually rather than auto selecting
+- Weather / clock supercards for dashboard
+- Toggle supercard per zones
+- Add energy monitoring supercard for dashboard
+- Home tab for dashboard, with favourite devices and supercards
+- Add toggleable energy dashboard as a self-contained zone
+- Add toggleable camera dashboard as a self-contained zone
 
-# Maybe 
-
+# Automations
+- Add multiple sequential actions for automations
+- Add timers and other actions for automations
+- time / weather based automations
+- Voice trigger
 - Add conditions for automations
-- Add multiple actions for automations
+  - Add OR/AND for conditions
+- Automations debug
 
-# Later 
-
+# Devices 
 - Add camera support 
-- Add bluetooth support 
-- Add Android support 
+- Add ESP32 / Tasmota support
 - Add screen based light
+- Add Android support 
+- Add Media Player integration
+- Add bluetooth support 
+
+# Admin
+- Add user management features
+- Add role-based access control
+- Add audit logging
+
+# features
+- Zigbee2MQTT wake up message overwrites the data store, it should merge 
+- Better design for the cards (no top right tooltip, onboarding message instead)
+- fix websocket connection dropping
+- Voice control with intents
+- Manage Zigbee2MQTT settings from Sumika
+- Improve device adding pipeline by making the device appear in the list as they get interviewed without refresh
+- device firmware updates
+- Home Screen widgets
+- Smart Watch support
+- Notification when devices are low battery
+- Distributed setup with multiple servers or satellites (mostly for voice control and multiroom audio)
+- Multiroom audio management
+- AI integration
+
+# Maybes
+- Webhooks

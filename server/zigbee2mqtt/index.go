@@ -6,6 +6,8 @@ import (
 	"strings"
 	"io/ioutil"
 	"time"
+	"os"
+	"path/filepath"
 
 	"github.com/azukaar/sumika/server/MQTT"
 	"github.com/azukaar/sumika/server/manage"
@@ -26,6 +28,49 @@ func toJSON(data interface{}) []byte {
 	return jsonData
 }
 
+// Debug helper to save MQTT messages when DEBUG_MQTT env var is set
+func debugSaveMQTTMessage(messageType, topic string, payload []byte) {
+	if os.Getenv("DEBUG_MQTT") == "" || os.Getenv("DEBUG_MQTT") == "false" || os.Getenv("DEBUG_MQTT") == "0" {
+		return
+	}
+	
+	// Create debug directory
+	debugDir := "_DEBUG"
+	if err := os.MkdirAll(debugDir, 0755); err != nil {
+		fmt.Printf("[DEBUG] Failed to create debug directory: %v\n", err)
+		return
+	}
+	
+	// Generate filename with timestamp and message type
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	// Clean topic name for filename (replace / with -)
+	cleanTopic := strings.ReplaceAll(topic, "/", "-")
+	filename := fmt.Sprintf("%s_mqtt_%s_%s.json", timestamp, messageType, cleanTopic)
+	filepath := filepath.Join(debugDir, filename)
+	
+	// Create debug data structure
+	debugData := map[string]interface{}{
+		"timestamp": time.Now().Format("2006-01-02T15:04:05Z07:00"),
+		"message_type": messageType,
+		"topic": topic,
+		"payload_raw": string(payload),
+	}
+	
+	// Try to parse payload as JSON for pretty formatting
+	var jsonPayload interface{}
+	if err := json.Unmarshal(payload, &jsonPayload); err == nil {
+		debugData["payload_parsed"] = jsonPayload
+	}
+	
+	// Write to debug file
+	debugJson, _ := json.MarshalIndent(debugData, "", "  ")
+	if err := ioutil.WriteFile(filepath, debugJson, 0644); err != nil {
+		fmt.Printf("[DEBUG] Failed to write debug file: %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG] Saved MQTT message to: %s\n", filepath)
+	}
+}
+
 func AllowJoin() {
 	payload := map[string]interface{}{
 			"value": true,
@@ -43,13 +88,19 @@ func RemoveDevice(deviceName string) {
 	fmt.Printf("[MQTT] Requested removal of device: %s from Zigbee2MQTT\n", deviceName)
 }
 
+func RestartZigbee2MQTT() {
+	// Send restart command to Zigbee2MQTT
+	MQTT.Publish("zb2m-sumika/bridge/request/restart", []byte("{}"))
+	fmt.Printf("[MQTT] Requested Zigbee2MQTT restart\n")
+}
+
 var DeviceList []Device
 
 func Init() {
 	MQTT.Subscribe("zb2m-sumika/bridge/devices", func(topic string, payload []byte) {
-		// save devices list to json file for debug
-		ioutil.WriteFile("devices-debug.json", payload, 0644)
-
+		// Debug: Save broadcast message
+		debugSaveMQTTMessage("broadcast", topic, payload)
+		
 		json.Unmarshal([]byte(payload), &DeviceList)
 		
 		// Update device cache
@@ -208,6 +259,9 @@ func mergeDevice(existing, new map[string]interface{}) map[string]interface{} {
 
 func SaveUpdates() {
 	MQTT.Subscribe("zb2m-sumika/+", func(topic string, payload []byte) {
+		// Debug: Save device state update message  
+		debugSaveMQTTMessage("device_state", topic, payload)
+		
 		fmt.Println("[MQTT] SAVE UPDATE:", topic, (string)(payload))
 		// get last part of topic
 		parts := strings.Split(topic, "/")
@@ -252,9 +306,12 @@ func SaveUpdates() {
 			// Create new cache entry if device not found
 			newDeviceCache = map[string]interface{}{
 				"friendly_name": deviceName,
-				"ieee_address":  deviceName,
+				// Note: We don't know the real IEEE address from state messages
+				// This will be updated when the device appears in bridge/devices broadcast
+				"ieee_address":  fmt.Sprintf("unknown_%s", deviceName),
 				"state":         mapData,
 				"last_seen":     time.Now().Format("2006-01-02T15:04:05Z07:00"),
+				"source":        "state_message", // Mark source for debugging
 			}
 			cachedDevices = append(cachedDevices, newDeviceCache)
 		}

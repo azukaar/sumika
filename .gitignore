@@ -3,3 +3,4 @@ build/
 build-data/
 zigbee2mqtt-data/
 docker-compose.dev-local.yml
+_DEBUG/

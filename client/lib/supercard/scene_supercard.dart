@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import '../zigbee-service.dart';
 import '../scene_management_service.dart';
+import '../widgets/card_interaction_indicator.dart';
 import './scene_models.dart';
 import './scene_modal.dart';
 
@@ -101,17 +102,8 @@ class SceneSupercard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.more_horiz_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
+                  const CardInteractionIndicator(
+                    customTooltip: 'Hold or right-click to view all scenes',
                   ),
                 ],
               ),

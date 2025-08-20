@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import '../controls/master_control.dart';
+import '../widgets/card_interaction_indicator.dart';
 import './lights_modal.dart';
 
 class LightsSupercard extends StatelessWidget {
@@ -99,17 +100,8 @@ class LightsSupercard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  const CardInteractionIndicator(
+                    customTooltip: 'Hold or right-click to expand lights controls',
                   ),
                 ],
               ),

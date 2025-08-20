@@ -31,9 +31,6 @@
 - Add audit logging
 
 # features
-- Zigbee2MQTT wake up message overwrites the data store, it should merge 
-- Better design for the cards (no top right tooltip, onboarding message instead)
-- fix websocket connection dropping
 - Voice control with intents
 - Manage Zigbee2MQTT settings from Sumika
 - Improve device adding pipeline by making the device appear in the list as they get interviewed without refresh
@@ -44,6 +41,9 @@
 - Distributed setup with multiple servers or satellites (mostly for voice control and multiroom audio)
 - Multiroom audio management
 - AI integration
+
+# Bugs 
+- When using external broker, some messages are being duplicated.
 
 # Maybes
 - Webhooks

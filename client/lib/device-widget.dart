@@ -4,6 +4,7 @@ import './types.dart';
 import './controls/controls.dart';
 import './zigbee-service.dart';
 import './utils/device_utils.dart';
+import './widgets/card_interaction_indicator.dart';
 
 enum DeviceWidgetMode { mini, full }
 
@@ -65,12 +66,10 @@ class DeviceWidget extends ConsumerWidget {
             ),
         ],
       ),
-      child: Tooltip(
-        message: 'Right-click or long press for details',
-        child: GestureDetector(
-          onSecondaryTap: onTap, // Right click
-          onLongPress: onTap, // Long press
-          child: Container(
+      child: GestureDetector(
+        onSecondaryTap: onTap, // Right click
+        onLongPress: onTap, // Long press
+        child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -131,23 +130,8 @@ class DeviceWidget extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.more_horiz,
-                        size: 16,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.5),
-                      ),
+                    const CardInteractionIndicator(
+                      customTooltip: 'Hold or right-click to view device details',
                     ),
                   ],
                 ),
@@ -159,11 +143,10 @@ class DeviceWidget extends ConsumerWidget {
                   child: _buildSimplifiedControls(context, ref),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
+            ), // Column
+        ), // Container (GestureDetector's child)
+      ), // GestureDetector
+    ); // Main Container
   }
 
   Widget _buildFullCard(BuildContext context, WidgetRef ref) {

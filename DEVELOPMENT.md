@@ -891,6 +891,27 @@ const double spacingXXL = 48.0; // 6x
 - Standard dividers and separators
 - Appropriate touch targets (48dp minimum)
 
+**Card Interaction Standards:**
+- All interactive cards must use `CardInteractionIndicator` widget
+- Consistent messaging: "Hold or right-click to [action]"
+- Universal support for both desktop (right-click) and mobile (long press)
+- Platform-appropriate tooltips that work on all devices
+- Standard `touch_app_rounded` icon with consistent styling
+
+```dart
+// Standard pattern for interactive cards
+CardInteractionIndicator(
+  customTooltip: 'Hold or right-click to view details', // Action-specific message
+),
+
+// Usage in GestureDetector
+GestureDetector(
+  onSecondaryTap: onExpand, // Right click for desktop
+  onLongPress: onExpand,    // Long press for mobile
+  child: cardContent,
+)
+```
+
 ---
 
 ## API Design

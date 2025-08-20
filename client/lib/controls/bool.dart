@@ -79,17 +79,20 @@ class _BoolControlState extends ConsumerState<BoolControl> {
             Switch(
               value: value,
               onChanged: (bool newValue) {
-                HapticFeedback.lightImpact(); // Haptic feedback for switch toggle
-                
+                HapticFeedback
+                    .lightImpact(); // Haptic feedback for switch toggle
+
                 var jsonState = Map<String, dynamic>.from({
                   prop: convertToString(newValue),
                 });
-                       
-                if(hasOption(widget.device, 'transition')) {
+
+                if (hasOption(widget.device, 'transition')) {
                   jsonState['transition'] = 0.2;
                 }
 
-                ref.read(devicesProvider.notifier).setDeviceState(widget.device.friendlyName, jsonState);
+                ref
+                    .read(devicesProvider.notifier)
+                    .setDeviceState(widget.device.friendlyName, jsonState);
 
                 setState(() {
                   _value = newValue;

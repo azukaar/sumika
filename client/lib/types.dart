@@ -84,6 +84,28 @@ class Device {
         'custom_name': customName,
         'custom_category': customCategory,
       };
+
+  Device copyWithState(Map<String, dynamic>? newState) => Device(
+        dateCode: dateCode,
+        definition: definition,
+        state: newState,
+        endpoint: endpoint,
+        friendlyName: friendlyName,
+        disabled: disabled,
+        ieeeAddress: ieeeAddress,
+        interviewCompleted: interviewCompleted,
+        interviewing: interviewing,
+        manufacturer: manufacturer,
+        modelId: modelId,
+        networkAddress: networkAddress,
+        powerSource: powerSource,
+        supported: supported,
+        type: type,
+        lastSeen: lastSeen,
+        zones: zones,
+        customName: customName,
+        customCategory: customCategory,
+      );
 }
 
 class DeviceDefinition {

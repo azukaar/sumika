@@ -76,6 +76,25 @@ class ZigbeeService {
     }
   }
 
+  Future<void> refreshDeviceState(String deviceId) async {
+    try {
+      final url = await baseZigbeeUrl;
+      print('[DEBUG] ZigbeeService: Refreshing device state for: $deviceId');
+      final response = await http.post(
+        Uri.parse('$url/get/${Uri.encodeComponent(deviceId)}'),
+      );
+      
+      if (response.statusCode != 200) {
+        throw Exception('Failed to refresh device state: ${response.statusCode}');
+      }
+      
+      print('[DEBUG] ZigbeeService: Device state refresh requested for: $deviceId');
+    } catch (e) {
+      print('[DEBUG] ZigbeeService: Error refreshing device state: $e');
+      throw Exception('Error refreshing device state: $e');
+    }
+  }
+
   Future<void> pair(String deviceId, String state) async {
     try {
       final url = await baseZigbeeUrl;
@@ -389,11 +408,19 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   // Handle real-time device updates from WebSocket
   void _handleDeviceUpdate(DeviceUpdate update) {
     print('[WEBSOCKET] Applying device update for ${update.deviceName}');
+    print('[WEBSOCKET] Update state: ${update.state}');
 
     // Apply incremental update to the current state
     state.whenData((devices) {
+      print('[WEBSOCKET] Searching for device ${update.deviceName} in ${devices.length} devices');
+      print('[WEBSOCKET] Available device names: ${devices.map((d) => d.friendlyName).join(', ')}');
+      
+      bool deviceFound = false;
       final updatedDevices = devices.map<Device>((device) {
         if (device.friendlyName == update.deviceName) {
+          print('[WEBSOCKET] MATCH! Updating device ${device.friendlyName}');
+          print('[WEBSOCKET] Old state: ${device.state}');
+          deviceFound = true;
           // Merge the incremental state update
           final currentState = Map<String, dynamic>.from(device.state ?? {});
 
@@ -406,31 +433,19 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
             }
           });
 
-          return Device(
-            dateCode: device.dateCode,
-            definition: device.definition,
-            state: currentState,
-            endpoint: device.endpoint,
-            friendlyName: device.friendlyName,
-            disabled: device.disabled,
-            ieeeAddress: device.ieeeAddress,
-            interviewCompleted: device.interviewCompleted,
-            interviewing: device.interviewing,
-            manufacturer: device.manufacturer,
-            modelId: device.modelId,
-            networkAddress: device.networkAddress,
-            powerSource: device.powerSource,
-            supported: device.supported,
-            type: device.type,
-            lastSeen: device.lastSeen,
-            zones: device.zones,
-          );
+          return device.copyWithState(currentState);
         }
         return device;
       }).toList();
 
+      print('[WEBSOCKET] Device ${update.deviceName} ${deviceFound ? "FOUND and UPDATED" : "NOT FOUND"}');
+      
       if (mounted) {
+        print('[WEBSOCKET] Setting new state with ${updatedDevices.length} devices');
         state = AsyncValue.data(updatedDevices);
+        print('[WEBSOCKET] State updated successfully');
+      } else {
+        print('[WEBSOCKET] Widget not mounted, skipping state update');
       }
     });
   }
@@ -534,25 +549,7 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
           final currentState = Map<String, dynamic>.from(device.state ?? {});
           currentState.addAll(stateToSet);
 
-          return Device(
-            dateCode: device.dateCode,
-            definition: device.definition,
-            state: currentState,
-            endpoint: device.endpoint,
-            friendlyName: device.friendlyName,
-            disabled: device.disabled,
-            ieeeAddress: device.ieeeAddress,
-            interviewCompleted: device.interviewCompleted,
-            interviewing: device.interviewing,
-            manufacturer: device.manufacturer,
-            modelId: device.modelId,
-            networkAddress: device.networkAddress,
-            powerSource: device.powerSource,
-            supported: device.supported,
-            type: device.type,
-            lastSeen: device.lastSeen,
-            zones: device.zones,
-          );
+          return device.copyWithState(currentState);
         }
         return device;
       }).toList();
@@ -643,6 +640,25 @@ class DevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
       loadDevices();
     }
     return success;
+  }
+
+  Future<void> refreshDeviceState(String deviceId) async {
+    try {
+      print('[DEBUG] DevicesNotifier: Starting refresh for device: $deviceId');
+      // Send MQTT get command to refresh device state
+      await _service.refreshDeviceState(deviceId);
+      print('[DEBUG] DevicesNotifier: MQTT get command sent successfully');
+      
+      // Wait a moment for the device to respond, then refresh the device list
+      print('[DEBUG] DevicesNotifier: Waiting 500ms for device response...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      print('[DEBUG] DevicesNotifier: Refreshing device list...');
+      loadDevices();
+    } catch (e) {
+      print('[DEBUG] DevicesNotifier: Error refreshing device state: $e');
+      // Still refresh the device list even if MQTT command failed
+      loadDevices();
+    }
   }
 }
 

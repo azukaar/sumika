@@ -169,10 +169,23 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
     return devicesState.when(
       data: (devices) {
         // Get the latest version of this device
+        print('[DEBUG] DevicePage: Building with ${devices.length} devices available');
+        print('[DEBUG] DevicePage: Looking for device: ${deviceRef.friendlyName}');
+        print('[DEBUG] DevicePage: Available devices: ${devices.map((d) => d.friendlyName).join(', ')}');
+        
         final device = devices.firstWhere(
-          (d) => d.friendlyName == deviceRef.friendlyName,
-          orElse: () => deviceRef, // Fallback to prop device if not found
+          (d) {
+            print('[DEBUG] DevicePage: Comparing "${d.friendlyName}" with "${deviceRef.friendlyName}"');
+            return d.friendlyName == deviceRef.friendlyName;
+          },
+          orElse: () {
+            print('[DEBUG] DevicePage: Device ${deviceRef.friendlyName} NOT FOUND in live data, using stale reference');
+            return deviceRef;
+          },
         );
+        
+        print('[DEBUG] DevicePage: Using ${device == deviceRef ? "STALE" : "FRESH"} device data for ${device.friendlyName}');
+        print('[DEBUG] DevicePage: Device state: ${device.state}');
         
         final cleanModel = device.definition.model?.replaceAll(' ', '-');
 
@@ -195,7 +208,12 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: () => ref.read(devicesProvider.notifier).loadDevices(),
+                onPressed: () {
+                  print('[DEBUG] DevicePage: Refresh button clicked for device: ${device.friendlyName}');
+                  print('[DEBUG] DevicePage: Current device state: ${device.state}');
+                  ref.read(devicesProvider.notifier).refreshDeviceState(device.friendlyName);
+                  print('[DEBUG] DevicePage: Refresh command sent');
+                },
               ),
               PopupMenuButton<String>(
                 onSelected: (value) {
@@ -229,10 +247,7 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                  devicesState.when(
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (error, stack) => Center(child: Text('Error: $error')),
-                      data: (devices) => Column(
+                    Column(
                       children: [
                         Row(
                           children: [
@@ -340,7 +355,6 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                         ),
                         ],
                       ),
-                    ),
                   ],
                 ),
               ),

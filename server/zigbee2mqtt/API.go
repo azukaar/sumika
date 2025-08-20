@@ -45,3 +45,14 @@ func API_RemoveDevice(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteSuccess(w, "Device not found in server cache, but removal requested from Zigbee2MQTT")
 	}
 }
+
+func API_ReloadDeviceState(w http.ResponseWriter, r *http.Request) {
+	deviceName, ok := httputil.GetRequiredPathParam(r, w, "device")
+	if !ok {
+		return
+	}
+
+	// Send get command to Zigbee2MQTT to refresh device state
+	ReloadDeviceState(deviceName)
+	httputil.WriteSuccess(w, "Device state refresh requested")
+}

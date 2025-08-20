@@ -45,6 +45,7 @@ func main() {
 		r.HandleFunc("/api/zigbee2mqtt/allow_join", zigbee2mqtt.API_AllowJoin)
 		r.HandleFunc("/api/zigbee2mqtt/list_devices", zigbee2mqtt.API_ListDevices)
 		r.HandleFunc("/api/zigbee2mqtt/set/{device}", zigbee2mqtt.API_SetDeviceState)
+		r.HandleFunc("/api/zigbee2mqtt/get/{device}", zigbee2mqtt.API_ReloadDeviceState).Methods("POST")
 		r.HandleFunc("/api/zigbee2mqtt/remove/{device}", zigbee2mqtt.API_RemoveDevice).Methods("DELETE")
 
 		r.HandleFunc("/api/manage/get-by-zone/{zone}", manage.API_GetDeviceByZone)

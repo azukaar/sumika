@@ -94,6 +94,13 @@ func RestartZigbee2MQTT() {
 	fmt.Printf("[MQTT] Requested Zigbee2MQTT restart\n")
 }
 
+func ReloadDeviceState(deviceName string) {
+	// Send get command to request fresh device state from Zigbee2MQTT
+	topic := fmt.Sprintf("zb2m-sumika/%s/get", deviceName)
+	MQTT.Publish(topic, []byte("{}"))
+	fmt.Printf("[MQTT] Requested device state refresh for: %s\n", deviceName)
+}
+
 var DeviceList []Device
 
 func Init() {

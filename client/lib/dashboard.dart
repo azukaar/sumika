@@ -21,6 +21,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Map<String, List<Device>> zoneDevices = {};
   String? selectedZone;
   bool isLoading = true;
+  String? errorMessage;
+  bool hasConnectionError = false;
   late PageController _pageController;
   int _currentPageIndex = 0;
 
@@ -47,6 +49,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     print('[DEBUG] Dashboard: Starting to load dashboard data...');
     setState(() {
       isLoading = true;
+      errorMessage = null;
+      hasConnectionError = false;
     });
 
     try {
@@ -75,6 +79,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           print('[DEBUG] Dashboard: Error stack trace: $stackTrace');
           setState(() {
             isLoading = false;
+            hasConnectionError = true;
+            errorMessage = _getErrorMessage(error);
           });
         },
       );
@@ -83,6 +89,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
+        hasConnectionError = true;
+        errorMessage = _getErrorMessage(e);
       });
     }
   }
@@ -142,6 +150,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         selectedZone = finalZones.isNotEmpty ? finalZones.first : null;
         _currentPageIndex = 0;
         isLoading = false;
+        hasConnectionError = false;
+        errorMessage = null;
       });
       print('[DEBUG] Dashboard: Dashboard state updated successfully');
       
@@ -154,6 +164,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
+        hasConnectionError = true;
+        errorMessage = _getErrorMessage(e);
       });
     }
   }
@@ -175,8 +187,178 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Dashboard'),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              child: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.settings_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              ),
+            ),
+          ],
         ),
         body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show error state if there's a connection error
+    if (hasConnectionError && errorMessage != null) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'Dashboard',
+            style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+          ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              child: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.settings_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              ),
+            ),
+          ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context)
+                            .colorScheme
+                            .errorContainer
+                            .withOpacity(0.1),
+                        Theme.of(context)
+                            .colorScheme
+                            .error
+                            .withOpacity(0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .error
+                          .withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.wifi_off_rounded,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  'Connection Error',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
+                    fontSize: 16,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.secondary,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _loadDashboardData(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                    label: const Text(
+                      'Retry Connection',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -785,6 +967,25 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return 'Afternoon';
     } else {
       return 'Evening';
+    }
+  }
+
+  String _getErrorMessage(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    
+    if (errorString.contains('connection') || 
+        errorString.contains('network') || 
+        errorString.contains('timeout') ||
+        errorString.contains('unreachable')) {
+      return 'Unable to connect to the server. Check your network connection and server status.';
+    } else if (errorString.contains('404') || errorString.contains('not found')) {
+      return 'Server endpoint not found. Please check your server configuration.';
+    } else if (errorString.contains('500') || errorString.contains('internal server')) {
+      return 'Server error occurred. Please try again or check server logs.';
+    } else if (errorString.contains('403') || errorString.contains('unauthorized')) {
+      return 'Access denied. Please check your authentication credentials.';
+    } else {
+      return 'Failed to load dashboard data. Please check your server connection.';
     }
   }
 

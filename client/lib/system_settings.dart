@@ -128,13 +128,28 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
       } else {
         // Handle regular URL setting
         final url = UrlConfigService.formatUrl(inputUrl);
+        final hasUrlChanged = _currentUrl != url;
+        
         await UrlConfigService.setServerUrl(url);
         ApiConfig.clearCache(); // Clear the cache to use new URL
+        
+        // If URL changed, clear state like disconnect
+        if (hasUrlChanged) {
+          _clearGlobalState();
+        }
         
         setState(() {
           _currentUrl = url;
           _successMessage = 'Settings saved successfully!';
         });
+
+        // Navigate to home if URL changed to refresh everything
+        if (hasUrlChanged && mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/', 
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       setState(() {

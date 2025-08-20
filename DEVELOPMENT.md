@@ -400,7 +400,8 @@ server/
 ├── realtime/
 │   └── websocket.go              # WebSocket real-time communication
 └── zigbee2mqtt/
-    └── API.go                    # Zigbee device communication
+    ├── API.go                    # Zigbee device communication and deletion
+    └── index.go                  # Intelligent device merging and synchronization
 ```
 
 ### Frontend Structure
@@ -653,12 +654,15 @@ enum ErrorType {
 - **Dialog**: For critical errors requiring user action
 - **Inline**: For form validation errors
 - **Screen**: For major failures with retry options
+- **Dashboard Error States**: Connection failure UI with retry button and settings access
 
 **Error Recovery:**
 - Automatic retry for network errors
 - Rollback for optimistic updates that fail
 - User-initiated retry with progress indication
 - Graceful degradation for non-critical features
+- **Dashboard Recovery**: Error state UI with manual retry and settings gear access
+- **State Clearing**: Clear app state on server URL changes to prevent stale data
 
 ---
 
@@ -747,7 +751,7 @@ UI Update ← State Update ← Response ← Data Access ← Storage
 
 ### Real-time Updates
 
-**WebSocket Integration:**
+**WebSocket Integration with Reconnection:**
 ```dart
 class DeviceNotifier extends BaseListAsyncNotifier<Device> {
   void _initializeWebSocket() {
@@ -763,11 +767,55 @@ class DeviceNotifier extends BaseListAsyncNotifier<Device> {
 }
 ```
 
+**Connection Management (`/client/lib/websocket_service.dart`):**
+- **Automatic Reconnection**: Progressive backoff with max attempts
+- **Extended Retry**: 2-minute retry after initial attempts exhausted  
+- **Manual Restart**: User-triggered reconnection capability
+- **Connection State**: Real-time connection status tracking
+
 **Update Strategies:**
 - **Optimistic Updates**: Immediate UI feedback with rollback on error
 - **Real-time Sync**: WebSocket updates for live device state
 - **Periodic Refresh**: Background polling for data consistency
 - **Cache Invalidation**: Smart refresh based on operation types
+- **Reconnection Recovery**: Auto-refresh data after reconnection
+
+### App Lifecycle Management
+
+**Mobile App State Handling (`/client/lib/main.dart`):**
+```dart
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  DateTime? _pauseTime;
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+        _pauseTime = DateTime.now();
+        break;
+      case AppLifecycleState.resumed:
+        _handleAppResumed();
+        break;
+    }
+  }
+  
+  void _handleAppResumed() {
+    if (_pauseTime != null) {
+      final pauseDuration = DateTime.now().difference(_pauseTime!);
+      if (pauseDuration.inMinutes >= 5) {
+        // Auto-refresh after extended absence
+        _reconnectAndRefresh();
+      }
+    }
+  }
+}
+```
+
+**Lifecycle Strategies:**
+- **Extended Absence Detection**: 5+ minute pause triggers refresh
+- **Automatic Reconnection**: WebSocket restart on app resume
+- **Data Refresh**: Device state update after background periods
+- **State Preservation**: Maintain UI state during brief interruptions
 
 ---
 
@@ -927,6 +975,76 @@ POST   /manage/zones/{zone}/devices    # Add device to zone
 
 ---
 
+## Device Management
+
+### Device Lifecycle Operations
+
+**Device Deletion (`/server/manage/device.go`, `/client/lib/zigbee-device.dart`):**
+```go
+// Backend: Complete device removal
+func API_DeleteDevice(w http.ResponseWriter, r *http.Request) {
+    deviceName, err := errors.GetPathParam(r, "device_name")
+    if err != nil {
+        errorHandler.HandleError(w, r, err, "extract_device_name")
+        return
+    }
+
+    // Remove from storage, cache, zones, and metadata
+    // Send MQTT command to Zigbee2MQTT to forget device
+    if err := container.DeviceService.DeleteDevice(deviceName); err != nil {
+        errorHandler.HandleError(w, r, err, "delete_device")
+        return
+    }
+
+    http.WriteJSON(w, map[string]string{"status": "deleted"})
+}
+```
+
+```dart
+// Frontend: User confirmation and navigation
+Future<void> _deleteDevice() async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Delete Device'),
+      content: Text('Are you sure? This action cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete')),
+      ],
+    ),
+  );
+
+  if (confirmed == true) {
+    try {
+      await zigbeeService.deleteDevice(widget.device.name);
+      Navigator.pop(context); // Return to device list
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete device: $e')),
+      );
+    }
+  }
+}
+```
+
+**Device Operations:**
+- **Complete Removal**: Device deleted from storage, cache, zones, and metadata
+- **MQTT Integration**: Zigbee2MQTT device forgetting via MQTT commands  
+- **User Confirmation**: Confirmation dialog with error handling
+- **Navigation Flow**: Automatic return to device list after successful deletion
+
+### Zigbee2MQTT Device Synchronization
+
+**Intelligent Device Merging (`/server/zigbee2mqtt/index.go`):**
+- **Preserve Metadata**: Keep user customizations during Zigbee2MQTT restarts
+- **Smart Merging**: Update Zigbee devices while preserving non-Zigbee devices
+- **Stale Device Cleanup**: Remove devices no longer in Zigbee2MQTT broadcasts
+- **Configuration Retention**: Maintain zone assignments, names, and categories
+- **Comprehensive Logging**: Detailed merge operation tracking
+
+---
+
 ## Configuration Management
 
 ### Environment-Based Configuration
@@ -975,6 +1093,27 @@ SUMIKA_MQTT_PASSWORD=secret
 SUMIKA_DEBUG=false
 SUMIKA_SHOW_INTERNAL_ERRORS=false
 ```
+
+### Settings Management
+
+**Frontend Settings Handling (`/client/lib/system_settings.dart`):**
+```dart
+// Clear app state on server URL changes
+void _onServerConfigChanged() {
+  // Clear cached data to prevent stale state
+  ref.invalidate(deviceNotifierProvider);
+  ref.invalidate(zoneNotifierProvider);
+  
+  // Navigate home for fresh start
+  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+}
+```
+
+**Settings UX Patterns:**
+- **Persistent Access**: Settings gear icon available in loading and error states
+- **State Management**: Clear app state when configuration changes
+- **Navigation Flow**: Return to home screen after server config changes
+- **Data Consistency**: Invalidate providers to prevent stale data
 
 ---
 

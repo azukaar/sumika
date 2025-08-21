@@ -95,11 +95,6 @@ func main() {
 		r.HandleFunc("/api/manage/zone/{zone}/devices", manage.API_GetDevicesByZoneAndCategory).Methods("GET")
 		r.HandleFunc("/api/manage/zone/{zone}/category/{category}/properties", manage.API_GetZoneCategoryProperties).Methods("GET")
 		
-		// Scene endpoints (legacy)
-		r.HandleFunc("/api/manage/scenes", manage.API_GetAllScenes).Methods("GET")
-		r.HandleFunc("/api/manage/scenes/featured", manage.API_GetFeaturedScenes).Methods("GET")
-		r.HandleFunc("/api/manage/scenes/{name}", manage.API_GetSceneByName).Methods("GET")
-		
 		// Scene management endpoints
 		r.HandleFunc("/api/manage/scene-management", manage.API_GetAllScenesManagement).Methods("GET")
 		r.HandleFunc("/api/manage/scene-management", manage.API_CreateScene).Methods("POST")

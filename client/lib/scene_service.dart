@@ -11,7 +11,7 @@ class SceneService {
   Future<List<LightingScene>> getAllScenes() async {
     try {
       final url = await baseUrl;
-      final response = await http.get(Uri.parse('$url/scenes'));
+      final response = await http.get(Uri.parse('$url/scene-management'));
       
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
@@ -27,15 +27,8 @@ class SceneService {
   // Get featured scenes (first 5)
   Future<List<LightingScene>> getFeaturedScenes() async {
     try {
-      final url = await baseUrl;
-      final response = await http.get(Uri.parse('$url/scenes/featured'));
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        return jsonList.map((json) => LightingScene.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load featured scenes: ${response.statusCode}');
-      }
+      final allScenes = await getAllScenes();
+      return allScenes.take(5).toList();
     } catch (e) {
       throw Exception('Failed to load featured scenes: $e');
     }
@@ -44,15 +37,11 @@ class SceneService {
   // Get scene by name
   Future<LightingScene?> getSceneByName(String name) async {
     try {
-      final url = await baseUrl;
-      final response = await http.get(Uri.parse('$url/scenes/$name'));
-      
-      if (response.statusCode == 200) {
-        return LightingScene.fromJson(json.decode(response.body));
-      } else if (response.statusCode == 404) {
-        return null;
-      } else {
-        throw Exception('Failed to load scene: ${response.statusCode}');
+      final allScenes = await getAllScenes();
+      try {
+        return allScenes.firstWhere((scene) => scene.name == name);
+      } catch (e) {
+        return null; // Scene not found
       }
     } catch (e) {
       throw Exception('Failed to load scene: $e');

@@ -158,12 +158,14 @@ class SceneManagementService {
     }
   }
 
-  // Test scene in zone
-  Future<void> testSceneInZone(String sceneId, String zone) async {
+  // Test scene definition in zone (without saving)
+  Future<void> testSceneDefinitionInZone(LightingScene sceneDefinition, String zone) async {
     try {
       final url = await baseUrl;
       final response = await http.post(
-        Uri.parse('$url/scene-management/$sceneId/test?zone=$zone'),
+        Uri.parse('$url/scene-management/test?zone=$zone'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(sceneDefinition.toJson()),
       );
 
       if (response.statusCode != 200) {
@@ -258,14 +260,6 @@ class SceneManagementNotifier
     }
   }
 
-  Future<void> testSceneInZone(String sceneId, String zone) async {
-    try {
-      await _service.testSceneInZone(sceneId, zone);
-    } catch (e) {
-      // Don't update state for test operations
-      rethrow;
-    }
-  }
 }
 
 // Scene management notifier provider

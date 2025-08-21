@@ -163,7 +163,7 @@ func externalMessageHandler(client paho.Client, msg paho.Message) {
 }
 
 func handleMessage(topic string, payload []byte) {
-  fmt.Println("[MQTT] Message:", topic, (string)(payload))
+  // fmt.Println("[MQTT] Message:", topic, (string)(payload))
   
   // Check exact match first
   if ListenersCache[topic] != nil {

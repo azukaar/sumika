@@ -5,7 +5,7 @@ import 'base_async_notifier.dart';
 
 class SceneNotifier extends BaseListAsyncNotifier<LightingScene> {
   final SceneManagementService _service;
-  
+
   SceneNotifier(this._service);
 
   @override
@@ -69,7 +69,9 @@ class SceneNotifier extends BaseListAsyncNotifier<LightingScene> {
 }
 
 // Provider for scene notifier
-final sceneNotifierProvider = StateNotifierProvider<SceneNotifier, AsyncValue<List<LightingScene>>>((ref) {
+final sceneNotifierProvider =
+    StateNotifierProvider<SceneNotifier, AsyncValue<List<LightingScene>>>(
+        (ref) {
   final service = ref.watch(sceneManagementServiceProvider);
   return SceneNotifier(service);
 });

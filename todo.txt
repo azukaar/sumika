@@ -42,8 +42,10 @@
 - AI integration
 
 # Bugs 
+- When receving an update, the dashboard moves back to the first tab
 - When using external broker, some messages are being duplicated.
 - Device page do not update on websocket message received
 
-# Maybes
-- Webhooks
+# Others
+- Webhooks????
+- Refactor server/MQTT and zigbee2MQTT

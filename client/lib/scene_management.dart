@@ -930,14 +930,8 @@ class _SceneEditorDialogState extends ConsumerState<SceneEditorDialog> {
 
       final service = ref.read(sceneManagementServiceProvider);
 
-      // First create the temp scene
-      await service.createScene(tempScene);
-
-      // Then test it in the selected zone
-      await service.testSceneInZone('temp_test', _selectedTestZone!);
-
-      // Clean up temp scene
-      await service.deleteScene('temp_test');
+      // Test the scene definition directly without creating/saving it
+      await service.testSceneDefinitionInZone(tempScene, _selectedTestZone!);
     } catch (e) {
       // Silent fail for auto-testing - don't show snackbar for every failure
       print('Auto-test failed: $e');

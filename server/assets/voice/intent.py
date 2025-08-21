@@ -9,6 +9,9 @@ class Command:
     intent: str
     entities: Dict[str, str]
     original_text: str
+    real_device_names: List[str] = None  # Real device names (IEEE addresses)
+    device_properties: Dict[str, List[str]] = None  # Properties for each device
+    valid_command: bool = True  # Whether command is valid for target devices
 
 # TEMPORARY DUMMY DATA FOR TESTING 
 
@@ -32,66 +35,27 @@ class IntentEntityMatcher:
                 self.entity_patterns = data.get('entity_patterns', {})
                 self.command_templates = data.get('command_templates', [])
                 
+                # Load new format fields
+                self.device_mappings = data.get('device_mappings', {})
+                self.zone_mappings = data.get('zone_mappings', {})
+                self.device_properties = data.get('device_properties', {})
+                
                 print(f"Loaded {len(self.intent_patterns)} intent patterns")
                 print(f"Loaded {len(self.entity_patterns)} entity categories")
                 print(f"Loaded {len(self.command_templates)} command templates")
+                print(f"Loaded {len(self.device_mappings)} device mappings")
+                print(f"Loaded {len(self.zone_mappings)} zone mappings")
+                print(f"Loaded {len(self.device_properties)} device properties")
                 return
                 
             except Exception as e:
-                print(f"Warning: Failed to load intents.json: {e}")
-                print("Falling back to default patterns")
+                print(f"Error: Failed to load intents.json: {e}")
+                raise RuntimeError(f"Cannot load voice intents: {e}")
+        else:
+            print(f"Error: intents.json not found at {intents_file}")
+            raise RuntimeError("Voice intents file not found. Please run the server to generate intents.json")
         
-        # Fallback to default hardcoded patterns
-        print("Using default hardcoded intent patterns")
-        self.intent_patterns = {
-            'switch_on': [
-                r'switch on|turn on|activate|enable',
-                r'light up|illuminate'
-            ],
-            'switch_off': [
-                r'switch off|turn off|deactivate|disable',
-                r'shut off'
-            ],
-            'dim': [
-                r'dim|lower|reduce brightness',
-                r'make.*darker'
-            ],
-            'brighten': [
-                r'brighten|increase brightness|make.*brighter',
-                r'set brightness.*high'
-            ]
-        }
-        
-        self.entity_patterns = {
-            'device': {
-                'light': r'light[s]?',
-                'all_lights': r'all\s+light[s]?',
-                'lamp': r'lamp[s]?'
-            },
-            'location': {
-                'living_room': r'living\s*room|lounge',
-                'bedroom': r'bedroom|bed\s*room',
-                'kitchen': r'kitchen',
-                'bathroom': r'bathroom|bath\s*room',
-                'hallway': r'hallway|hall\s*way|corridor'
-            },
-            'intensity': {
-                'percentage': r'(\d+)\s*%|(\d+)\s*percent',
-                'level': r'level\s*(\d+)|brightness\s*(\d+)'
-            }
-        }
-        
-        self.command_templates = [
-            "switch on light",
-            "switch on all lights",
-            "switch on light in {location}",
-            "switch off light", 
-            "switch off all lights",
-            "switch off light in {location}",
-            "dim lights",
-            "dim light in {location}",
-            "set brightness to {intensity}"
-        ]
+        # No fallback - intents.json must be available
     
     def preprocess_text(self, text):
         """Clean the input text"""
@@ -136,6 +100,39 @@ class IntentEntityMatcher:
         
         return entities
     
+    def get_real_device_name(self, friendly_name):
+        """Get the real device name (IEEE address) from friendly name"""
+        return self.device_mappings.get(friendly_name, friendly_name)
+    
+    def get_device_properties(self, device_name):
+        """Get the properties available for a device"""
+        return self.device_properties.get(device_name, [])
+    
+    def get_devices_in_zone(self, zone_name):
+        """Get all devices in a specific zone"""
+        return self.zone_mappings.get(zone_name, [])
+    
+    def validate_command_for_device(self, intent, device_name):
+        """Check if a command is valid for a device based on its properties"""
+        properties = self.get_device_properties(device_name)
+        
+        # Map intents to required properties
+        property_requirements = {
+            'switch_on': ['state'],
+            'switch_off': ['state'], 
+            'dim': ['brightness'],
+            'brighten': ['brightness'],
+            'set_brightness': ['brightness'],
+            'set_color': ['color', 'color_temp']
+        }
+        
+        required_props = property_requirements.get(intent, [])
+        if not required_props:
+            return True  # No specific requirements
+            
+        # Check if device has any of the required properties
+        return any(prop in properties for prop in required_props)
+    
     def match_to_template(self, intent, entities):
         """Match the intent and entities to a command template"""
         if not intent:
@@ -174,10 +171,38 @@ class IntentEntityMatcher:
         
         if intent:
             matched_command = self.match_to_template(intent, entities)
+            
+            # Resolve device names and validate command
+            real_device_names = []
+            device_properties = {}
+            valid_command = True
+            
+            # Handle device entities
+            if 'device' in entities:
+                device_name = entities['device']
+                real_name = self.get_real_device_name(device_name)
+                real_device_names.append(real_name)
+                device_properties[real_name] = self.get_device_properties(device_name)
+                valid_command = self.validate_command_for_device(intent, device_name)
+            
+            # Handle location entities (get all devices in zone)
+            if 'location' in entities:
+                zone_name = entities['location']
+                zone_devices = self.get_devices_in_zone(zone_name)
+                for device in zone_devices:
+                    real_name = self.get_real_device_name(device)
+                    real_device_names.append(real_name)
+                    device_properties[real_name] = self.get_device_properties(device)
+                    if not self.validate_command_for_device(intent, device):
+                        valid_command = False
+            
             return Command(
                 intent=intent,
                 entities=entities,
-                original_text=matched_command or f"{intent} (unmatched)"
+                original_text=matched_command or f"{intent} (unmatched)",
+                real_device_names=real_device_names,
+                device_properties=device_properties,
+                valid_command=valid_command
             )
         
         return None
@@ -199,14 +224,20 @@ def main():
             "intent": result.intent,
             "entities": result.entities,
             "command": result.original_text,
-            "input": input_text
+            "input": input_text,
+            "real_device_names": result.real_device_names,
+            "device_properties": result.device_properties,
+            "valid_command": result.valid_command
         }
     else:
         output = {
             "intent": None,
             "entities": {},
             "command": None,
-            "input": input_text
+            "input": input_text,
+            "real_device_names": [],
+            "device_properties": {},
+            "valid_command": False
         }
     
     print(json.dumps(output, indent=2))

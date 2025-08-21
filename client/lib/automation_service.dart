@@ -12,7 +12,7 @@ class AutomationService {
     try {
       final url = await baseUrl;
       final response = await http.get(Uri.parse('$url/automations'));
-      
+
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
         return jsonList.map((json) => Automation.fromJson(json)).toList();
@@ -29,7 +29,7 @@ class AutomationService {
     try {
       final url = await baseUrl;
       final response = await http.get(Uri.parse('$url/automations/$id'));
-      
+
       if (response.statusCode == 200) {
         return Automation.fromJson(json.decode(response.body));
       } else if (response.statusCode == 404) {
@@ -51,7 +51,7 @@ class AutomationService {
         headers: {'Content-Type': 'application/json'},
         body: json.encode(automation.toJson()),
       );
-      
+
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         return responseData['id'] as String;
@@ -77,12 +77,29 @@ class AutomationService {
   Future<void> updateAutomation(String id, Map<String, dynamic> updates) async {
     try {
       final url = await baseUrl;
+
+      // Special handling for enabled toggle
+      if (updates.length == 1 && updates.containsKey('enabled')) {
+        final response = await http.put(
+          Uri.parse('$url/automations/$id/toggle'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(updates),
+        );
+
+        if (response.statusCode != 200) {
+          final errorData = json.decode(response.body);
+          throw Exception(errorData['error'] ?? 'Failed to toggle automation');
+        }
+        return;
+      }
+
+      // For other updates, use the regular update endpoint
       final response = await http.put(
         Uri.parse('$url/automations/$id'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(updates),
       );
-      
+
       if (response.statusCode != 200) {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? 'Failed to update automation');
@@ -101,7 +118,7 @@ class AutomationService {
         headers: {'Content-Type': 'application/json'},
         body: json.encode(automation.toJson()),
       );
-      
+
       if (response.statusCode != 200) {
         String errorMessage = 'Failed to update automation';
         try {
@@ -125,7 +142,7 @@ class AutomationService {
     try {
       final url = await baseUrl;
       final response = await http.delete(Uri.parse('$url/automations/$id'));
-      
+
       if (response.statusCode != 200) {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? 'Failed to delete automation');
@@ -139,13 +156,15 @@ class AutomationService {
   Future<List<Automation>> getAutomationsForDevice(String deviceName) async {
     try {
       final url = await baseUrl;
-      final response = await http.get(Uri.parse('$url/automations/device/$deviceName'));
-      
+      final response =
+          await http.get(Uri.parse('$url/automations/device/$deviceName'));
+
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
         return jsonList.map((json) => Automation.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load device automations: ${response.statusCode}');
+        throw Exception(
+            'Failed to load device automations: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to load device automations: $e');
@@ -156,26 +175,29 @@ class AutomationService {
   Future<List<String>> getDeviceProperties(String deviceName) async {
     try {
       final url = await baseUrl;
-      final response = await http.get(Uri.parse('$url/device/$deviceName/properties'));
-      
+      final response =
+          await http.get(Uri.parse('$url/device/$deviceName/properties'));
+
       if (response.statusCode == 200) {
         final responseBody = response.body;
         if (responseBody.isEmpty || responseBody == 'null') {
           return [];
         }
-        
+
         final dynamic decoded = json.decode(responseBody);
         if (decoded == null) {
           return [];
         }
-        
+
         if (decoded is List) {
           return decoded.whereType<String>().toList();
         } else {
-          throw Exception('Expected array response, got: ${decoded.runtimeType}');
+          throw Exception(
+              'Expected array response, got: ${decoded.runtimeType}');
         }
       } else {
-        throw Exception('Failed to load device properties: ${response.statusCode}');
+        throw Exception(
+            'Failed to load device properties: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to load device properties: $e');
@@ -187,7 +209,7 @@ class AutomationService {
     try {
       final url = await baseUrl;
       final response = await http.post(Uri.parse('$url/automations/$id/run'));
-      
+
       if (response.statusCode != 200) {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? 'Failed to run automation');
@@ -210,13 +232,15 @@ final automationsProvider = FutureProvider<List<Automation>>((ref) async {
 });
 
 // Provider for automations by device
-final automationsForDeviceProvider = FutureProvider.family<List<Automation>, String>((ref, deviceName) async {
+final automationsForDeviceProvider =
+    FutureProvider.family<List<Automation>, String>((ref, deviceName) async {
   final service = ref.watch(automationServiceProvider);
   return service.getAutomationsForDevice(deviceName);
 });
 
 // Provider for device properties
-final devicePropertiesProvider = FutureProvider.family<List<String>, String>((ref, deviceName) async {
+final devicePropertiesProvider =
+    FutureProvider.family<List<String>, String>((ref, deviceName) async {
   final service = ref.watch(automationServiceProvider);
   return service.getDeviceProperties(deviceName);
 });
@@ -259,7 +283,8 @@ class AutomationNotifier extends StateNotifier<AsyncValue<List<Automation>>> {
     }
   }
 
-  Future<void> updateAutomationPartial(String id, Map<String, dynamic> updates) async {
+  Future<void> updateAutomationPartial(
+      String id, Map<String, dynamic> updates) async {
     try {
       await _service.updateAutomation(id, updates);
       await loadAutomations(); // Refresh list
@@ -282,7 +307,7 @@ class AutomationNotifier extends StateNotifier<AsyncValue<List<Automation>>> {
   Future<void> toggleAutomationEnabled(String id, bool enabled) async {
     try {
       await _service.updateAutomation(id, {'enabled': enabled});
-      
+
       // Update local state immediately for better UX
       state.whenData((automations) {
         final updatedAutomations = automations.map((automation) {
@@ -309,7 +334,9 @@ class AutomationNotifier extends StateNotifier<AsyncValue<List<Automation>>> {
   }
 }
 
-final automationNotifierProvider = StateNotifierProvider<AutomationNotifier, AsyncValue<List<Automation>>>((ref) {
+final automationNotifierProvider =
+    StateNotifierProvider<AutomationNotifier, AsyncValue<List<Automation>>>(
+        (ref) {
   final service = ref.watch(automationServiceProvider);
   return AutomationNotifier(service);
 });

@@ -10,19 +10,19 @@ import (
 	"time"
 
 	"github.com/azukaar/sumika/server/config"
-	"github.com/azukaar/sumika/server/manage"
 	"github.com/azukaar/sumika/server/realtime"
-	"github.com/azukaar/sumika/server/utils"
-	"github.com/azukaar/sumika/server/voice"
+	"github.com/azukaar/sumika/server/types"
 )
 
 // VoiceService manages voice recognition functionality
 type VoiceService struct {
 	config           *config.VoiceConfig
-	runner           *voice.VoiceRunner
+	runner           *VoiceRunner
 	mutex            sync.RWMutex
 	deviceCommandFunc func(deviceName, command string)
-	history          []voice.VoiceHistoryEntry
+	getDeviceCacheFunc func() []map[string]interface{}
+	getDeviceZonesFunc func(deviceName string) []string
+	history          []types.VoiceHistoryEntry
 	maxHistory       int
 }
 
@@ -34,7 +34,17 @@ func NewVoiceService(deviceCommandFunc func(deviceName, command string)) *VoiceS
 	vs := &VoiceService{
 		config:           &cfg.Voice,
 		deviceCommandFunc: deviceCommandFunc,
-		history:          make([]voice.VoiceHistoryEntry, 0),
+		getDeviceCacheFunc: func() []map[string]interface{} {
+			// TODO: This should be injected from zigbee2mqtt or device service
+			// For now return empty to avoid crashes
+			return []map[string]interface{}{}
+		},
+		getDeviceZonesFunc: func(deviceName string) []string {
+			// TODO: This should be injected from zone service
+			// For now return empty to avoid crashes
+			return []string{}
+		},
+		history:          make([]types.VoiceHistoryEntry, 0),
 		maxHistory:       100,
 	}
 	
@@ -46,7 +56,7 @@ func NewVoiceService(deviceCommandFunc func(deviceName, command string)) *VoiceS
 
 // createVoiceRunner creates a new voice runner with callbacks
 func (vs *VoiceService) createVoiceRunner() {
-	voiceConfig := voice.VoiceConfig{
+	voiceConfig := types.VoiceConfig{
 		WhisperModel:  vs.config.WhisperModel,
 		WhisperDevice: vs.config.WhisperDevice,
 		ComputeType:   vs.config.ComputeType,
@@ -55,15 +65,15 @@ func (vs *VoiceService) createVoiceRunner() {
 		OutputDevice:  vs.config.OutputDevice,
 	}
 	
-	callbacks := voice.VoiceCallbacks{
+	callbacks := types.VoiceCallbacks{
 		OnWakeWordDetected: func(label string, score float64) {
 			vs.handleWakeWordDetected(label, score)
 		},
 		OnTranscription: func(text string, duration, processingTime float64) {
 			vs.handleTranscription(text, duration, processingTime)
 		},
-		OnIntent: func(transcription, intent, command string) {
-			vs.handleIntent(transcription, intent, command)
+		OnIntent: func(transcription string, intentResult *types.IntentResult) {
+			vs.handleIntent(transcription, intentResult)
 		},
 		OnError: func(message string, processingTime float64) {
 			vs.handleError(message, processingTime)
@@ -73,7 +83,7 @@ func (vs *VoiceService) createVoiceRunner() {
 		},
 	}
 	
-	vs.runner = voice.NewVoiceRunner(voiceConfig, callbacks)
+	vs.runner = NewVoiceRunner(voiceConfig, callbacks)
 }
 
 // Start starts the voice recognition service if enabled
@@ -183,13 +193,13 @@ func (vs *VoiceService) GetConfig() config.VoiceConfig {
 }
 
 // GetStatus returns the current voice service status
-func (vs *VoiceService) GetStatus() voice.VoiceStatus {
+func (vs *VoiceService) GetStatus() types.VoiceStatus {
 	vs.mutex.RLock()
 	defer vs.mutex.RUnlock()
 	
 	isRunning := vs.runner != nil && vs.runner.IsRunning()
 	
-	return voice.VoiceStatus{
+	return types.VoiceStatus{
 		Enabled:   vs.config.Enabled,
 		IsRunning: isRunning,
 		Timestamp: time.Now(),
@@ -197,23 +207,23 @@ func (vs *VoiceService) GetStatus() voice.VoiceStatus {
 }
 
 // GetInputDevices returns available audio input devices
-func (vs *VoiceService) GetInputDevices() ([]voice.AudioDevice, error) {
+func (vs *VoiceService) GetInputDevices() ([]types.AudioDevice, error) {
 	return vs.getAudioDevices(true)
 }
 
 // GetOutputDevices returns available audio output devices
-func (vs *VoiceService) GetOutputDevices() ([]voice.AudioDevice, error) {
+func (vs *VoiceService) GetOutputDevices() ([]types.AudioDevice, error) {
 	return vs.getAudioDevices(false)
 }
 
 // getAudioDevices gets input or output audio devices
-func (vs *VoiceService) getAudioDevices(input bool) ([]voice.AudioDevice, error) {
+func (vs *VoiceService) getAudioDevices(input bool) ([]types.AudioDevice, error) {
 	// Use the ListDevices functionality from voice package
-	// This would need to be adapted from the existing voice.ListDevices()
+	// This would need to be adapted from the existing ListDevices()
 	
 	// For now, return a placeholder implementation
 	// In a real implementation, you'd call the malgo device enumeration
-	devices := []voice.AudioDevice{
+	devices := []types.AudioDevice{
 		{
 			ID:       "default",
 			Name:     "Default Audio Device",
@@ -253,31 +263,29 @@ func (vs *VoiceService) handleTranscription(text string, duration, processingTim
 }
 
 // handleIntent handles voice intent processing and device command execution
-func (vs *VoiceService) handleIntent(transcription, intent, command string) {
-	log.Printf("Voice service: Intent '%s' -> Command '%s'", intent, command)
-	
+func (vs *VoiceService) handleIntent(transcription string, intentResult *types.IntentResult) {
+	log.Printf("Voice service: Intent '%s' -> Command '%s'", intentResult.Intent, intentResult.Command)
+
 	// Add to history
-	vs.addToHistory(voice.VoiceHistoryEntry{
+	vs.addToHistory(types.VoiceHistoryEntry{
 		Timestamp:     time.Now(),
 		Transcription: transcription,
-		Intent:        intent,
-		Command:       command,
+		Intent:        intentResult.Intent,
+		Command:       intentResult.Command,
 		Success:       true,
 	})
 	
 	// Send WebSocket event
 	realtime.BroadcastEvent("voice_command_processed", map[string]interface{}{
 		"transcription": transcription,
-		"intent":        intent,
-		"command":       command,
+		"intent":        intentResult.Intent,
+		"command":       intentResult.Command,
 		"timestamp":     time.Now(),
 	})
 	
 	// Execute device command if available
-	if vs.deviceCommandFunc != nil && command != "" {
-		// For now, we'll parse the command string to extract device commands
-		// This is where you'd integrate with your existing device control system
-		vs.executeDeviceCommand(command)
+	if vs.deviceCommandFunc != nil && intentResult.Command != "" {
+		vs.executeDeviceCommand(intentResult)
 	}
 }
 
@@ -286,7 +294,7 @@ func (vs *VoiceService) handleError(message string, processingTime float64) {
 	log.Printf("Voice service error: %s (%.3fs processing)", message, processingTime)
 	
 	// Add to history as failed entry
-	vs.addToHistory(voice.VoiceHistoryEntry{
+	vs.addToHistory(types.VoiceHistoryEntry{
 		Timestamp:      time.Now(),
 		Success:        false,
 		Error:          message,
@@ -313,12 +321,12 @@ func (vs *VoiceService) handleStatusUpdate(eventType, message string) {
 }
 
 // addToHistory adds an entry to the voice command history
-func (vs *VoiceService) addToHistory(entry voice.VoiceHistoryEntry) {
+func (vs *VoiceService) addToHistory(entry types.VoiceHistoryEntry) {
 	vs.mutex.Lock()
 	defer vs.mutex.Unlock()
 	
 	// Add to beginning of history
-	vs.history = append([]voice.VoiceHistoryEntry{entry}, vs.history...)
+	vs.history = append([]types.VoiceHistoryEntry{entry}, vs.history...)
 	
 	// Trim to max size
 	if len(vs.history) > vs.maxHistory {
@@ -327,32 +335,13 @@ func (vs *VoiceService) addToHistory(entry voice.VoiceHistoryEntry) {
 }
 
 // executeDeviceCommand executes a device command parsed from voice intent
-func (vs *VoiceService) executeDeviceCommand(command string) {
-	// Parse the JSON output from intent.py
-	var intentResult struct {
-		Intent   string            `json:"intent"`
-		Entities map[string]string `json:"entities"`
-		Command  string            `json:"command"`
-		Input    string            `json:"input"`
-	}
-	
-	if err := utils.ParseScriptOutput([]byte(command), &intentResult); err != nil {
-		log.Printf("Failed to parse voice command JSON: %v", err)
-		log.Printf("Raw command received: %q", command)
-		log.Printf("Command length: %d bytes", len(command))
-		log.Printf("Command as bytes: %v", []byte(command))
-		log.Printf("Looking for JSON in: %s", command)
-		return
-	}
-	
+func (vs *VoiceService) executeDeviceCommand(intentResult *types.IntentResult) {
 	// Skip if no intent was detected
-	if intentResult.Intent == "" {
+	if intentResult.Command == "" {
 		log.Printf("No intent detected in voice command: %s", intentResult.Input)
 		return
 	}
-	
-	log.Printf("Processing voice intent: %s with entities: %v", intentResult.Intent, intentResult.Entities)
-	
+		
 	// Resolve device names from entities
 	deviceNames := vs.resolveDeviceNames(intentResult.Entities)
 	if len(deviceNames) == 0 {
@@ -409,7 +398,7 @@ func (vs *VoiceService) resolveDeviceNames(entities map[string]string) []string 
 	}
 	
 	// Get all device cache to search through
-	deviceCache := manage.GetDeviceCache()
+	deviceCache := vs.getDeviceCacheFunc()
 	
 	// Search for devices matching the criteria
 	for _, device := range deviceCache {
@@ -507,7 +496,7 @@ func (vs *VoiceService) intentToDeviceCommands(intent string, entities map[strin
 func (vs *VoiceService) getAllLightDevices() []string {
 	var lights []string
 	
-	deviceCache := manage.GetDeviceCache()
+	deviceCache := vs.getDeviceCacheFunc()
 	
 	for _, device := range deviceCache {
 		if vs.deviceMatchesType(device, "light") {
@@ -563,7 +552,7 @@ func (vs *VoiceService) deviceMatchesType(device map[string]interface{}, deviceT
 
 func (vs *VoiceService) deviceInLocation(deviceName, location string) bool {
 	// Get device zones
-	zones := manage.GetZonesOfDevice(deviceName)
+	zones := vs.getDeviceZonesFunc(deviceName)
 	
 	// Check if any zone matches the location
 	locationLower := strings.ToLower(location)
@@ -637,7 +626,7 @@ func (vs *VoiceService) parseColor(color string) string {
 }
 
 // GetHistory returns recent voice command history
-func (vs *VoiceService) GetHistory(limit int) []voice.VoiceHistoryEntry {
+func (vs *VoiceService) GetHistory(limit int) []types.VoiceHistoryEntry {
 	vs.mutex.RLock()
 	defer vs.mutex.RUnlock()
 	
@@ -646,7 +635,7 @@ func (vs *VoiceService) GetHistory(limit int) []voice.VoiceHistoryEntry {
 	}
 	
 	// Return a copy of the history slice
-	result := make([]voice.VoiceHistoryEntry, limit)
+	result := make([]types.VoiceHistoryEntry, limit)
 	copy(result, vs.history[:limit])
 	return result
 }

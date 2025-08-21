@@ -2,42 +2,13 @@ import '../types.dart';
 
 class DeviceUtils {
   static String getDeviceType(Device device) {
-    final model = device.definition.model?.toLowerCase() ?? '';
-    final description = device.definition.description?.toLowerCase() ?? '';
-    final friendlyName = device.friendlyName.toLowerCase();
-    final vendor = device.definition.vendor?.toLowerCase() ?? '';
-    
-    // More comprehensive keyword matching
-    final sensorKeywords = ['sensor', 'motion', 'pir', 'occupancy', 'presence'];
-    final lightKeywords = ['light', 'bulb', 'lamp', 'led', 'strip', 'dimmer', 'hue', 'white', 'color', 'ambiance'];
-    final switchKeywords = ['switch', 'plug', 'outlet', 'socket', 'relay'];
-    final contactKeywords = ['door', 'window', 'contact', 'magnet', 'open', 'close'];
-    final thermostatKeywords = ['thermostat', 'temperature', 'temp', 'climate'];
-    
-    // Check all fields against keywords
-    final allText = '$model $description $friendlyName $vendor';
-    
-    // Check more specific device types first to avoid misclassification
-    if (_containsAny(allText, switchKeywords)) {
-      return 'switch';
+    // Use server-side category if available (this is the authoritative source)
+    if (device.customCategory != null && device.customCategory!.isNotEmpty) {
+      return device.customCategory!;
     }
     
-    if (_containsAny(allText, lightKeywords)) {
-      return 'light';
-    }
-    
-    if (_containsAny(allText, sensorKeywords)) {
-      return 'sensor';
-    }
-    
-    if (_containsAny(allText, contactKeywords)) {
-      return 'door_window';
-    }
-    
-    if (_containsAny(allText, thermostatKeywords)) {
-      return 'thermostat';
-    }
-    
+    // If no server-side category is available, return unknown
+    // The server is responsible for all device categorization
     return 'unknown';
   }
   

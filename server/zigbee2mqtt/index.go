@@ -10,9 +10,241 @@ import (
 	"path/filepath"
 
 	"github.com/azukaar/sumika/server/MQTT"
-	"github.com/azukaar/sumika/server/manage"
 	"github.com/azukaar/sumika/server/realtime"
+	"github.com/azukaar/sumika/server/storage"
 )
+
+// Callback functions for device management
+var automationCallback func(deviceName string, oldState, newState map[string]interface{})
+
+// SetAutomationCallback sets the callback for automation triggers
+func SetAutomationCallback(callback func(deviceName string, oldState, newState map[string]interface{})) {
+	automationCallback = callback
+}
+
+// Device management functions using unified storage
+func GetDeviceCache() []map[string]interface{} {
+	return storage.GetDeviceCache()
+}
+
+func SetDeviceCache(cache []map[string]interface{}) {
+	storage.SetDeviceCache(cache)
+}
+
+func GetZonesOfDevice(deviceName string) []string {
+	return storage.GetDeviceZones(deviceName)
+}
+
+func GetDeviceMetadata(deviceName string) (map[string]string, bool) {
+	return storage.GetDeviceMetadata(deviceName)
+}
+
+func SetDeviceCustomCategory(deviceName, category string) {
+	storage.SetDeviceCustomCategory(deviceName, category)
+}
+
+// GetDeviceProperties extracts controllable properties from device definition exposes
+func GetDeviceProperties(deviceName string) []string {
+	return storage.GetDeviceProperties(deviceName)
+}
+
+
+func GuessDeviceCategory(device map[string]interface{}) string {
+	// Check definition for device type hints
+	if definition, ok := device["definition"].(map[string]interface{}); ok {
+		if description, hasDesc := definition["description"].(string); hasDesc {
+			descLower := strings.ToLower(description)
+			
+			// Look for keywords in description
+			if strings.Contains(descLower, "light") || strings.Contains(descLower, "bulb") || strings.Contains(descLower, "lamp") {
+				return "light"
+			}
+			if strings.Contains(descLower, "switch") || strings.Contains(descLower, "plug") {
+				return "switch"
+			}
+			if strings.Contains(descLower, "sensor") {
+				return "sensor"
+			}
+			if strings.Contains(descLower, "button") || strings.Contains(descLower, "remote") {
+				return "button"
+			}
+			if strings.Contains(descLower, "door") || strings.Contains(descLower, "window") || strings.Contains(descLower, "contact") {
+				return "door_window"
+			}
+			if strings.Contains(descLower, "motion") || strings.Contains(descLower, "occupancy") {
+				return "motion"
+			}
+			if strings.Contains(descLower, "thermostat") || strings.Contains(descLower, "temperature control") {
+				return "thermostat"
+			}
+		}
+		
+		// Check exposes array for feature types
+		if exposes, hasExposes := definition["exposes"].([]interface{}); hasExposes {
+			for _, expose := range exposes {
+				if exposeMap, ok := expose.(map[string]interface{}); ok {
+					if exposeType, hasType := exposeMap["type"].(string); hasType {
+						switch exposeType {
+						case "light":
+							return "light"
+						case "switch":
+							return "switch"
+						case "binary":
+							// Check the property name to determine type
+							if property, hasProp := exposeMap["property"].(string); hasProp {
+								propLower := strings.ToLower(property)
+								if propLower == "contact" {
+									return "door_window"
+								}
+								if propLower == "occupancy" || propLower == "motion" {
+									return "motion"
+								}
+								if strings.Contains(propLower, "state") {
+									return "switch"
+								}
+							}
+						}
+					}
+					
+					// Check for action property (buttons)
+					if features, hasFeatures := exposeMap["features"].([]interface{}); hasFeatures {
+						for _, feature := range features {
+							if featureMap, ok := feature.(map[string]interface{}); ok {
+								if property, hasProp := featureMap["property"].(string); hasProp && property == "action" {
+									return "button"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Check device state for clues
+	if state, hasState := device["state"].(map[string]interface{}); hasState {
+		// Check for common light properties
+		if _, hasState := state["state"]; hasState {
+			if _, hasBrightness := state["brightness"]; hasBrightness {
+				return "light"
+			}
+			if _, hasColor := state["color"]; hasColor {
+				return "light"
+			}
+		}
+		
+		// Check for sensor properties
+		if _, hasTemp := state["temperature"]; hasTemp {
+			return "sensor"
+		}
+		if _, hasHumidity := state["humidity"]; hasHumidity {
+			return "sensor"
+		}
+		if _, hasContact := state["contact"]; hasContact {
+			return "door_window"
+		}
+		if _, hasMotion := state["motion"]; hasMotion {
+			return "motion"
+		}
+		if _, hasOccupancy := state["occupancy"]; hasOccupancy {
+			return "motion"
+		}
+		if _, hasAction := state["action"]; hasAction {
+			return "button"
+		}
+		
+		// Check for power measurement (smart plugs)
+		if _, hasPower := state["power"]; hasPower {
+			return "switch"
+		}
+	}
+	
+	// Check device type from zigbee2mqtt
+	if deviceType, hasType := device["type"].(string); hasType {
+		switch strings.ToLower(deviceType) {
+		case "enddevice":
+			// EndDevices are usually sensors or buttons
+			return "sensor"
+		case "router":
+			// Routers are usually lights or switches
+			return "light"
+		}
+	}
+	
+	return "unknown"
+}
+
+func SetDeviceCustomName(deviceName, customName string) {
+	storage.SetDeviceCustomName(deviceName, customName)
+}
+
+func GetDeviceCustomName(deviceName string) string {
+	if metadata, ok := storage.GetDeviceMetadata(deviceName); ok {
+		if customName, ok := metadata["custom_name"]; ok {
+			return customName
+		}
+	}
+	return ""
+}
+
+func GetDeviceCustomCategory(deviceName string) string {
+	if metadata, ok := storage.GetDeviceMetadata(deviceName); ok {
+		if category, ok := metadata["custom_category"]; ok {
+			return category
+		}
+	}
+	return ""
+}
+
+func GetDeviceDisplayName(deviceName string) string {
+	if customName := GetDeviceCustomName(deviceName); customName != "" {
+		return customName
+	}
+	return deviceName
+}
+
+func GetDeviceCategory(deviceName string, deviceCache map[string]interface{}) string {
+	if category := GetDeviceCustomCategory(deviceName); category != "" {
+		return category
+	}
+	return GuessDeviceCategory(deviceCache)
+}
+
+func GetAllDeviceCategories() []string {
+	categories := make(map[string]bool)
+	
+	// Add standard categories that should always be available
+	standardCategories := []string{"light", "switch", "sensor", "button", "door_window", "motion", "thermostat", "unknown"}
+	for _, category := range standardCategories {
+		categories[category] = true
+	}
+	
+	// Get all device cache to extract additional categories
+	deviceCache := storage.GetDeviceCache()
+	
+	for _, device := range deviceCache {
+		if friendlyName, ok := device["friendly_name"].(string); ok {
+			// Check for custom category
+			if metadata, exists := storage.GetDeviceMetadata(friendlyName); exists {
+				if category, ok := metadata["custom_category"]; ok && category != "" {
+					categories[category] = true
+				}
+			}
+			
+			// Also add guessed category
+			category := GuessDeviceCategory(device)
+			if category != "unknown" {
+				categories[category] = true
+			}
+		}
+	}
+	
+	result := make([]string, 0, len(categories))
+	for category := range categories {
+		result = append(result, category)
+	}
+	return result
+}
 
 func getDeviceByName(name string) int {
 	for key, device := range DeviceList {
@@ -108,12 +340,30 @@ func Init() {
 		// Debug: Save broadcast message
 		debugSaveMQTTMessage("broadcast", topic, payload)
 		
-		json.Unmarshal([]byte(payload), &DeviceList)
+		var allDevices []Device
+		json.Unmarshal([]byte(payload), &allDevices)
+		
+		// Filter out coordinator devices (devices without a model AND typically named "Coordinator")
+		DeviceList = []Device{}
+		for _, device := range allDevices {
+			// More specific coordinator detection
+			isCoordinator := (device.Definition.Model == "" && 
+							 (device.FriendlyName == "Coordinator" || 
+							  device.FriendlyName == "Bridge" ||
+							  strings.Contains(strings.ToLower(device.FriendlyName), "coordinator")))
+			
+			if !isCoordinator {
+				DeviceList = append(DeviceList, device)
+				fmt.Printf("[FILTER] Including device: %s (model: %s)\n", device.FriendlyName, device.Definition.Model)
+			} else {
+				fmt.Printf("[FILTER] Excluding coordinator/bridge device: %s (no model, name suggests coordinator)\n", device.FriendlyName)
+			}
+		}
 		
 		// Update device cache
 		updateDeviceCache()
 		
-		fmt.Printf("[CACHE] Saved %d devices to cache\n", len(DeviceList))
+		fmt.Printf("[CACHE] Saved %d devices to cache (filtered from %d total)\n", len(DeviceList), len(allDevices))
 	})
 	SaveUpdates()
 }
@@ -124,7 +374,7 @@ func SetDeviceState(name string, state string) {
 
 func ListDevices() []Device {
 	// Try to use cached devices first
-	cachedDevices := manage.GetDeviceCache()
+	cachedDevices := GetDeviceCache()
 	if len(cachedDevices) > 0 {
 		fmt.Printf("[CACHE] Using cached device list with %d devices\n", len(cachedDevices))
 		// Convert cached devices back to Device structs
@@ -134,12 +384,22 @@ func ListDevices() []Device {
 			var device Device
 			json.Unmarshal(deviceData, &device)
 			// populate zones for each device
-			device.Zones = manage.GetZonesOfDevice(device.FriendlyName)
+			device.Zones = GetZonesOfDevice(device.FriendlyName)
 			
 			// populate custom metadata for each device
-			if metadata, exists := manage.GetDeviceMetadata(device.FriendlyName); exists {
+			if metadata, exists := GetDeviceMetadata(device.FriendlyName); exists {
 				device.CustomName = metadata["custom_name"]
 				device.CustomCategory = metadata["custom_category"]
+			}
+			
+			// If no custom category is set, auto-detect and save it
+			if device.CustomCategory == "" {
+				guessedCategory := GuessDeviceCategory(cachedDevice)
+				if guessedCategory != "unknown" {
+					fmt.Printf("[CACHE] Auto-categorizing device '%s' as '%s'\n", device.FriendlyName, guessedCategory)
+					SetDeviceCustomCategory(device.FriendlyName, guessedCategory)
+					device.CustomCategory = guessedCategory
+				}
 			}
 			
 			devices = append(devices, device)
@@ -151,12 +411,27 @@ func ListDevices() []Device {
 	fmt.Printf("[CACHE] Cache empty, using live device list with %d devices\n", len(DeviceList))
 	// populate zones and custom metadata for each device
 	for key, device := range DeviceList {
-		DeviceList[key].Zones = manage.GetZonesOfDevice(device.FriendlyName)
+		DeviceList[key].Zones = GetZonesOfDevice(device.FriendlyName)
 		
 		// populate custom metadata for each device
-		if metadata, exists := manage.GetDeviceMetadata(device.FriendlyName); exists {
+		if metadata, exists := GetDeviceMetadata(device.FriendlyName); exists {
 			DeviceList[key].CustomName = metadata["custom_name"]
 			DeviceList[key].CustomCategory = metadata["custom_category"]
+		}
+		
+		// If no custom category is set, auto-detect and save it
+		if DeviceList[key].CustomCategory == "" {
+			// Convert device to cache format for GuessDeviceCategory
+			deviceData, _ := json.Marshal(DeviceList[key])
+			var deviceCache map[string]interface{}
+			json.Unmarshal(deviceData, &deviceCache)
+			
+			guessedCategory := GuessDeviceCategory(deviceCache)
+			if guessedCategory != "unknown" {
+				fmt.Printf("[LIVE] Auto-categorizing device '%s' as '%s'\n", device.FriendlyName, guessedCategory)
+				SetDeviceCustomCategory(device.FriendlyName, guessedCategory)
+				DeviceList[key].CustomCategory = guessedCategory
+			}
 		}
 	}
 	return DeviceList
@@ -164,35 +439,56 @@ func ListDevices() []Device {
 
 // GetDeviceState returns the current state of a device by name
 func GetDeviceState(deviceName string) map[string]interface{} {
-	fmt.Printf("Looking for device state: %s\n", deviceName)
+	fmt.Printf("[DEBUG] Looking for device state: %s\n", deviceName)
+	
+	// Debug: List all devices in DeviceList
+	fmt.Printf("[DEBUG] DeviceList contains %d devices:\n", len(DeviceList))
+	for i, device := range DeviceList {
+		fmt.Printf("[DEBUG]   [%d] FriendlyName: '%s'\n", i, device.FriendlyName)
+	}
 	
 	// First try to find in live DeviceList
 	deviceIndex := getDeviceByName(deviceName)
-	if deviceIndex != -1 && DeviceList[deviceIndex].State != nil {
-		fmt.Printf("Device %s found in live list with state: %+v\n", deviceName, DeviceList[deviceIndex].State)
-		return DeviceList[deviceIndex].State
+	if deviceIndex != -1 {
+		if DeviceList[deviceIndex].State != nil {
+			fmt.Printf("[DEBUG] Device %s found in live list with state: %+v\n", deviceName, DeviceList[deviceIndex].State)
+			return DeviceList[deviceIndex].State
+		} else {
+			fmt.Printf("[DEBUG] Device %s found in live list but has no state\n", deviceName)
+		}
+	} else {
+		fmt.Printf("[DEBUG] Device %s not found in live DeviceList\n", deviceName)
 	}
 	
 	// If not found in live list, try cached devices
-	cachedDevices := manage.GetDeviceCache()
-	for _, cachedDevice := range cachedDevices {
+	cachedDevices := GetDeviceCache()
+	fmt.Printf("[DEBUG] Cache contains %d devices:\n", len(cachedDevices))
+	for i, cachedDevice := range cachedDevices {
+		if friendlyName, exists := cachedDevice["friendly_name"]; exists {
+			fmt.Printf("[DEBUG]   [%d] friendly_name: '%s'\n", i, friendlyName)
+		}
 		if friendlyName, exists := cachedDevice["friendly_name"]; exists && friendlyName == deviceName {
 			if state, hasState := cachedDevice["state"]; hasState {
+				fmt.Printf("[DEBUG] Device %s state type: %T, value: %+v\n", deviceName, state, state)
 				if stateMap, ok := state.(map[string]interface{}); ok {
-					fmt.Printf("Device %s found in cache with state: %+v\n", deviceName, stateMap)
+					fmt.Printf("[DEBUG] Device %s found in cache with state: %+v\n", deviceName, stateMap)
 					return stateMap
+				} else {
+					fmt.Printf("[DEBUG] Device %s found in cache but state is not a map (type: %T)\n", deviceName, state)
 				}
+			} else {
+				fmt.Printf("[DEBUG] Device %s found in cache but has no state\n", deviceName)
 			}
 		}
 	}
 	
-	fmt.Printf("Device %s not found or has no state\n", deviceName)
+	fmt.Printf("[DEBUG] Device %s not found or has no state\n", deviceName)
 	return map[string]interface{}{}
 }
 
 func updateDeviceCache() {
 	// Get existing cache to merge with
-	existingCache := manage.GetDeviceCache()
+	existingCache := GetDeviceCache()
 	fmt.Printf("[CACHE] Merging %d Zigbee2MQTT devices with %d existing cached devices\n", len(DeviceList), len(existingCache))
 	
 	// Convert new DeviceList to map for easy lookup by friendly_name
@@ -236,7 +532,7 @@ func updateDeviceCache() {
 	}
 	
 	fmt.Printf("[CACHE] Final merged cache has %d devices\n", len(mergedCache))
-	manage.SetDeviceCache(mergedCache)
+	SetDeviceCache(mergedCache)
 }
 
 // Helper function to merge existing device data with new Zigbee2MQTT data
@@ -253,6 +549,8 @@ func mergeDevice(existing, new map[string]interface{}) map[string]interface{} {
 		"custom_name",     // Custom display name
 		"custom_category", // Custom category
 		"server_metadata", // Any server-specific metadata
+		"state",           // Device state (CRITICAL - don't lose this!)
+		"last_seen",       // Last seen timestamp
 	}
 	
 	for _, field := range preserveFields {
@@ -281,7 +579,7 @@ func SaveUpdates() {
 
 		// Get old state from cache for automation trigger checking
 		oldState := make(map[string]interface{})
-		cachedDevices := manage.GetDeviceCache()
+		cachedDevices := GetDeviceCache()
 		
 		// Find device in cache to get old state
 		var deviceFound bool
@@ -324,20 +622,32 @@ func SaveUpdates() {
 		}
 
 		// Update cache
-		manage.SetDeviceCache(cachedDevices)
+		fmt.Printf("[DEBUG] SaveUpdates: Saving device cache with %d devices\n", len(cachedDevices))
+		for i, device := range cachedDevices {
+			if friendlyName, exists := device["friendly_name"]; exists {
+				if state, hasState := device["state"]; hasState {
+					fmt.Printf("[DEBUG] SaveUpdates: Device [%d] %s has state: %+v\n", i, friendlyName, state)
+				} else {
+					fmt.Printf("[DEBUG] SaveUpdates: Device [%d] %s has no state\n", i, friendlyName)
+				}
+			}
+		}
+		SetDeviceCache(cachedDevices)
 		
 		// For new devices (not found in cache), guess the device category
 		if !deviceFound && newDeviceCache != nil {
-			guessedCategory := manage.GuessDeviceCategory(newDeviceCache)
+			guessedCategory := GuessDeviceCategory(newDeviceCache)
 			if guessedCategory != "unknown" {
 				fmt.Printf("[MQTT] Setting guessed category '%s' for new device: %s\n", guessedCategory, deviceName)
-				manage.SetDeviceCustomCategory(deviceName, guessedCategory)
+				SetDeviceCustomCategory(deviceName, guessedCategory)
 			}
 		}
 		
 		// Check automation triggers when device state changes
 		fmt.Printf("[MQTT] Checking automation triggers for device: %s\n", deviceName)
-		manage.CheckTriggers(deviceName, oldState, mapData)
+		if automationCallback != nil {
+			automationCallback(deviceName, oldState, mapData)
+		}
 		
 		// Broadcast real-time update to WebSocket clients
 		if hub := realtime.GetHub(); hub != nil {

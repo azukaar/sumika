@@ -9,11 +9,67 @@ import (
 	"strings"
 )
 
+// getExecutableDir returns the directory of the current executable
+func getExecutableDir() (string, error) {
+    exePath, err := os.Executable()
+    if err != nil {
+        return "", err
+    }
+    // Resolve any symlinks
+    exePath, err = filepath.EvalSymlinks(exePath)
+    if err != nil {
+        return "", err
+    }
+    return filepath.Dir(exePath), nil
+}
+
+// buildPath constructs a path relative to the executable directory
+func buildPath(relativePath string) string {
+    execDir, err := getExecutableDir()
+    if err != nil {
+        fmt.Printf("⚠️  Failed to get executable directory, using relative path: %v", err)
+        return relativePath
+    }
+    return filepath.Join(execDir, relativePath)
+}
+
+// DeviceProperty represents a single property with its capabilities
+type DeviceProperty struct {
+	Name         string            `json:"name"`
+	Type         string            `json:"type"`           // binary, numeric, enum
+	Access       int               `json:"access"`         // 1=read, 2=write, 4=state_set
+	IsReadable   bool              `json:"is_readable"`
+	IsWritable   bool              `json:"is_writable"`
+	MinValue     *float64          `json:"min_value,omitempty"`
+	MaxValue     *float64          `json:"max_value,omitempty"`
+	Unit         string            `json:"unit,omitempty"`
+	Values       []string          `json:"values,omitempty"`      // For enums
+	Presets      []DevicePreset    `json:"presets,omitempty"`     // For numeric with presets
+	Commands     []string          `json:"commands"`              // Voice commands for this property
+}
+
+type DevicePreset struct {
+	Name        string  `json:"name"`
+	Value       float64 `json:"value"`
+	Description string  `json:"description,omitempty"`
+}
+
+// Device represents a single device with all its information
+type Device struct {
+	FriendlyName   string            `json:"friendly_name"`
+	IEEEAddress    string            `json:"ieee_address"`
+	CustomName     string            `json:"custom_name,omitempty"`
+	Zones          []string          `json:"zones"`
+	Properties     []DeviceProperty  `json:"properties"`      // Detailed property info with commands
+	VoicePatterns  []string          `json:"voice_patterns"`  // How users can refer to this device
+}
+
 // VoiceIntentData represents the structure that matches intent.py format
 type VoiceIntentData struct {
-	IntentPatterns  map[string][]string            `json:"intent_patterns"`
-	EntityPatterns  map[string]map[string]string   `json:"entity_patterns"`
-	CommandTemplates []string                      `json:"command_templates"`
+	IntentPatterns   map[string][]string            `json:"intent_patterns"`
+	EntityPatterns   map[string]map[string]string   `json:"entity_patterns"`
+	Devices          []Device                       `json:"devices"`              // Clean list of all devices with property-specific commands
+	Zones            map[string][]string            `json:"zones"`               // zone -> [friendly_names]
 }
 
 // VoiceIntentGenerator generates voice intents from storage data
@@ -22,26 +78,312 @@ type VoiceIntentGenerator struct {
 }
 
 // NewVoiceIntentGenerator creates a new voice intent generator
-func NewVoiceIntentGenerator(assetsPath string) *VoiceIntentGenerator {
+func NewVoiceIntentGenerator() *VoiceIntentGenerator {
 	return &VoiceIntentGenerator{
-		assetsPath: assetsPath,
+		assetsPath: buildPath(filepath.Join("assets", "voice")),
 	}
 }
 
 // GenerateIntents generates voice intents from storage data and saves to JSON
-func (g *VoiceIntentGenerator) GenerateIntents(data *StorageData) error {
-	intents := g.createIntentData(data)
+func (g *VoiceIntentGenerator) GenerateIntents() error {
+	intents := g.createIntentData()
 	return g.saveIntents(intents)
 }
 
 // createIntentData creates the intent data structure from storage data
-func (g *VoiceIntentGenerator) createIntentData(data *StorageData) *VoiceIntentData {
+func (g *VoiceIntentGenerator) createIntentData() *VoiceIntentData {
+	devices, zones := g.createDevicesAndZones()
+	
 	intents := &VoiceIntentData{
 		IntentPatterns:   g.createIntentPatterns(),
-		EntityPatterns:   g.createEntityPatterns(data),
-		CommandTemplates: g.createCommandTemplates(data),
+		EntityPatterns:   g.createEntityPatterns(devices),
+		Devices:          devices,
+		Zones:            zones,
 	}
 	return intents
+}
+
+// createDevicesAndZones creates clean device list and zone mappings
+func (g *VoiceIntentGenerator) createDevicesAndZones() ([]Device, map[string][]string) {
+	var devices []Device
+	zones := make(map[string][]string)
+	
+	// Get all devices from cache
+	deviceCache := GetDeviceCache()
+	for _, deviceData := range deviceCache {
+		if friendlyName, ok := deviceData["friendly_name"].(string); ok {
+			// Get IEEE address
+			ieeeAddr := ""
+			if addr, exists := deviceData["ieee_address"]; exists {
+				if addrStr, ok := addr.(string); ok {
+					ieeeAddr = addrStr
+				}
+			}
+			
+			// Get custom name if it exists
+			customName := ""
+			if metadata, exists := GetDeviceMetadata(friendlyName); exists {
+				if custom, hasCustom := metadata["custom_name"]; hasCustom {
+					customName = custom
+				}
+			}
+			
+			// Get device zones
+			deviceZones := GetDeviceZones(friendlyName)
+			
+			// Get detailed device properties with commands
+			properties := g.createDeviceProperties(friendlyName)
+			
+			// Create voice patterns (how users can refer to this device)
+			voicePatterns := g.createVoicePatterns(friendlyName, customName)
+			
+			device := Device{
+				FriendlyName:  friendlyName,
+				IEEEAddress:   ieeeAddr,
+				CustomName:    customName,
+				Zones:         deviceZones,
+				Properties:    properties,
+				VoicePatterns: voicePatterns,
+			}
+			
+			devices = append(devices, device)
+		}
+	}
+	
+	// Create zone mappings
+	allZones := GetAllZones()
+	for _, zone := range allZones {
+		devicesInZone := []string{}
+		for _, device := range devices {
+			for _, deviceZone := range device.Zones {
+				if deviceZone == zone {
+					devicesInZone = append(devicesInZone, device.FriendlyName)
+					break
+				}
+			}
+		}
+		zones[zone] = devicesInZone
+	}
+	
+	return devices, zones
+}
+
+// createDeviceProperties creates detailed property information for a device
+func (g *VoiceIntentGenerator) createDeviceProperties(friendlyName string) []DeviceProperty {
+	var properties []DeviceProperty
+	
+	// Get the actual expose definitions for this device
+	exposes := g.getDeviceExposes(friendlyName)
+	
+	for _, expose := range exposes {
+		deviceProps := g.parseExposeToProperties(expose)
+		properties = append(properties, deviceProps...)
+	}
+	
+	return properties
+}
+
+// parseExposeToProperties converts an expose definition to DeviceProperty objects
+func (g *VoiceIntentGenerator) parseExposeToProperties(expose interface{}) []DeviceProperty {
+	var properties []DeviceProperty
+	
+	exposeMap, ok := expose.(map[string]interface{})
+	if !ok {
+		return properties
+	}
+	
+	// Handle expose with features (like lights)
+	if features, hasFeatures := exposeMap["features"].([]interface{}); hasFeatures {
+		for _, feature := range features {
+			properties = append(properties, g.parseExposeToProperties(feature)...)
+		}
+		return properties
+	}
+	
+	// Parse single property
+	property := g.parseExposeProperty(exposeMap)
+	if property.Name != "" {
+		properties = append(properties, property)
+	}
+	
+	return properties
+}
+
+// parseExposeProperty parses a single expose definition into a DeviceProperty
+func (g *VoiceIntentGenerator) parseExposeProperty(expose map[string]interface{}) DeviceProperty {
+	property := DeviceProperty{}
+	
+	// Get basic info
+	if name, hasName := expose["property"].(string); hasName {
+		property.Name = name
+	}
+	
+	if propType, hasType := expose["type"].(string); hasType {
+		property.Type = propType
+	}
+	
+	// Get access level
+	if access, hasAccess := expose["access"].(float64); hasAccess {
+		property.Access = int(access)
+		property.IsReadable = property.Access&1 != 0
+		property.IsWritable = property.Access&2 != 0
+	}
+	
+	// Get unit
+	if unit, hasUnit := expose["unit"].(string); hasUnit {
+		property.Unit = unit
+	}
+	
+	// Type-specific parsing
+	switch property.Type {
+	case "numeric":
+		g.parseNumericProperty(expose, &property)
+	case "enum":
+		g.parseEnumProperty(expose, &property)
+	case "binary":
+		g.parseBinaryProperty(expose, &property)
+	}
+	
+	// Generate commands for this property
+	property.Commands = g.generatePropertyCommands(property)
+	
+	return property
+}
+
+// parseNumericProperty parses numeric-specific fields
+func (g *VoiceIntentGenerator) parseNumericProperty(expose map[string]interface{}, property *DeviceProperty) {
+	if minVal, hasMin := expose["value_min"].(float64); hasMin {
+		property.MinValue = &minVal
+	}
+	if maxVal, hasMax := expose["value_max"].(float64); hasMax {
+		property.MaxValue = &maxVal
+	}
+	
+	// Parse presets
+	if presets, hasPresets := expose["presets"].([]interface{}); hasPresets {
+		for _, preset := range presets {
+			if presetMap, ok := preset.(map[string]interface{}); ok {
+				devicePreset := DevicePreset{}
+				if name, hasName := presetMap["name"].(string); hasName {
+					devicePreset.Name = name
+				}
+				if value, hasValue := presetMap["value"].(float64); hasValue {
+					devicePreset.Value = value
+				}
+				if desc, hasDesc := presetMap["description"].(string); hasDesc {
+					devicePreset.Description = desc
+				}
+				property.Presets = append(property.Presets, devicePreset)
+			}
+		}
+	}
+}
+
+// parseEnumProperty parses enum-specific fields
+func (g *VoiceIntentGenerator) parseEnumProperty(expose map[string]interface{}, property *DeviceProperty) {
+	if values, hasValues := expose["values"].([]interface{}); hasValues {
+		for _, value := range values {
+			if valueStr, ok := value.(string); ok {
+				property.Values = append(property.Values, valueStr)
+			}
+		}
+	}
+}
+
+// parseBinaryProperty parses binary-specific fields
+func (g *VoiceIntentGenerator) parseBinaryProperty(expose map[string]interface{}, property *DeviceProperty) {
+	// Binary properties have value_on, value_off, value_toggle
+	if onVal, hasOn := expose["value_on"].(string); hasOn {
+		property.Values = append(property.Values, onVal)
+	}
+	if offVal, hasOff := expose["value_off"].(string); hasOff {
+		property.Values = append(property.Values, offVal)
+	}
+	if toggleVal, hasToggle := expose["value_toggle"].(string); hasToggle {
+		property.Values = append(property.Values, toggleVal)
+	}
+}
+
+// generatePropertyCommands generates voice commands for a specific property
+func (g *VoiceIntentGenerator) generatePropertyCommands(property DeviceProperty) []string {
+	// Only generate commands for writable properties
+	if !property.IsWritable {
+		return []string{}
+	}
+	
+	var commands []string
+	commandSet := make(map[string]bool)
+	
+	addCommand := func(cmd string) {
+		if !commandSet[cmd] {
+			commands = append(commands, cmd)
+			commandSet[cmd] = true
+		}
+	}
+	
+	switch property.Type {
+	case "binary":
+		addCommand("turn on {device}")
+		addCommand("turn off {device}")
+		addCommand("switch on {device}")
+		addCommand("switch off {device}")
+		addCommand("toggle {device}")
+		
+	case "numeric":
+		// Relative commands
+		addCommand("brighter {device}")
+		addCommand("dimmer {device}")
+		addCommand("louder {device}")
+		addCommand("quieter {device}")
+		addCommand("warmer {device}")
+		addCommand("cooler {device}")
+		addCommand("faster {device}")
+		addCommand("slower {device}")
+		addCommand("higher {device}")
+		addCommand("lower {device}")
+		addCommand("increase {device}")
+		addCommand("decrease {device}")
+		
+		// Absolute commands
+		addCommand("set {device} to {intensity}")
+		addCommand("set {device} " + property.Name + " to {intensity}")
+		
+		// Preset commands
+		for _, preset := range property.Presets {
+			addCommand("set {device} to " + preset.Name)
+			addCommand("set to " + preset.Name)
+		}
+		
+	case "enum":
+		for _, value := range property.Values {
+			addCommand("set {device} to " + value)
+			addCommand("set " + value)
+			addCommand(value + " {device}")
+		}
+	}
+	
+	return commands
+}
+
+// createVoicePatterns creates voice patterns for how users can refer to a device
+func (g *VoiceIntentGenerator) createVoicePatterns(friendlyName, customName string) []string {
+	patterns := []string{}
+	
+	// Only add custom name pattern (user-friendly name)
+	if customName != "" {
+		patterns = append(patterns, g.createDeviceRegex(customName))
+	} else if friendlyName != "" && !g.isIEEEAddress(friendlyName) {
+		// Only add friendly name if it's not an IEEE address
+		patterns = append(patterns, g.createDeviceRegex(friendlyName))
+	}
+	
+	return patterns
+}
+
+// isIEEEAddress checks if a string looks like an IEEE address
+func (g *VoiceIntentGenerator) isIEEEAddress(name string) bool {
+	// IEEE addresses start with 0x and are 16 hex characters
+	return len(name) == 18 && name[:2] == "0x"
 }
 
 // createIntentPatterns creates static intent patterns
@@ -72,67 +414,54 @@ func (g *VoiceIntentGenerator) createIntentPatterns() map[string][]string {
 	}
 }
 
-// createEntityPatterns creates entity patterns from storage data
-func (g *VoiceIntentGenerator) createEntityPatterns(data *StorageData) map[string]map[string]string {
+// createEntityPatterns creates entity patterns from devices
+func (g *VoiceIntentGenerator) createEntityPatterns(devices []Device) map[string]map[string]string {
 	entities := map[string]map[string]string{
-		"device":    g.createDevicePatterns(data),
-		"location":  g.createLocationPatterns(data),
+		"device":    g.createDevicePatterns(devices),
+		"location":  g.createLocationPatterns(),
 		"intensity": g.createIntensityPatterns(),
 		"color":     g.createColorPatterns(),
 	}
 	return entities
 }
 
-// createDevicePatterns creates device patterns from device cache and metadata
-func (g *VoiceIntentGenerator) createDevicePatterns(data *StorageData) map[string]string {
-	devices := make(map[string]string)
+// createDevicePatterns creates device patterns from devices list
+func (g *VoiceIntentGenerator) createDevicePatterns(devices []Device) map[string]string {
+	patterns := make(map[string]string)
 	
 	// Add generic device patterns
-	devices["light"] = "light[s]?"
-	devices["lights"] = "lights|all\\s+light[s]?"
-	devices["lamp"] = "lamp[s]?"
-	devices["switch"] = "switch[es]?"
+	patterns["light"] = "light[s]?"
+	patterns["lights"] = "lights|all\\s+light[s]?"
+	patterns["lamp"] = "lamp[s]?"
+	patterns["switch"] = "switch[es]?"
 	
-	// Process devices from cache
-	for _, device := range data.DeviceCache {
-		if deviceName, ok := device["friendly_name"].(string); ok {
-			// Clean device name for regex
-			cleanName := g.cleanDeviceName(deviceName)
-			if cleanName != "" {
-				// Create regex pattern for device name
-				pattern := g.createDeviceRegex(deviceName)
-				devices[cleanName] = pattern
-				
-				// Check for custom name in metadata
-				if metadata, exists := data.DeviceMetadata[deviceName]; exists {
-					if customName, hasCustom := metadata["custom_name"]; hasCustom && customName != "" {
-						customClean := g.cleanDeviceName(customName)
-						if customClean != "" {
-							customPattern := g.createDeviceRegex(customName)
-							devices[customClean] = customPattern
-						}
-					}
-				}
+	// Add patterns for each device
+	for _, device := range devices {
+		// Add friendly name pattern
+		cleanName := g.cleanDeviceName(device.FriendlyName)
+		if cleanName != "" {
+			patterns[cleanName] = g.createDeviceRegex(device.FriendlyName)
+		}
+		
+		// Add custom name pattern if it exists
+		if device.CustomName != "" {
+			customClean := g.cleanDeviceName(device.CustomName)
+			if customClean != "" {
+				patterns[customClean] = g.createDeviceRegex(device.CustomName)
 			}
 		}
 	}
 	
-	return devices
+	return patterns
 }
 
 // createLocationPatterns creates location patterns from zones
-func (g *VoiceIntentGenerator) createLocationPatterns(data *StorageData) map[string]string {
+func (g *VoiceIntentGenerator) createLocationPatterns() map[string]string {
 	locations := make(map[string]string)
-	
-	// Add default location patterns
-	locations["living_room"] = "living\\s*room|lounge"
-	locations["bedroom"] = "bedroom|bed\\s*room"
-	locations["kitchen"] = "kitchen"
-	locations["bathroom"] = "bathroom|bath\\s*room"
-	locations["hallway"] = "hallway|hall\\s*way|corridor"
-	
-	// Add zones from storage
-	for _, zone := range data.Zones {
+		
+	// Add zones from storage using storage function
+	zones := GetAllZones()
+	for _, zone := range zones {
 		if zone != "" {
 			cleanZone := g.cleanZoneName(zone)
 			pattern := g.createZoneRegex(zone)
@@ -167,42 +496,19 @@ func (g *VoiceIntentGenerator) createColorPatterns() map[string]string {
 	}
 }
 
-// createCommandTemplates creates command templates based on available devices and zones
-func (g *VoiceIntentGenerator) createCommandTemplates(data *StorageData) []string {
-	templates := []string{
-		// Basic device commands
-		"switch on {device}",
-		"switch off {device}",
-		"turn on {device}",
-		"turn off {device}",
-		
-		// Location-based commands
-		"switch on lights in {location}",
-		"switch off lights in {location}",
-		"turn on lights in {location}",
-		"turn off lights in {location}",
-		
-		// Brightness commands
-		"dim {device}",
-		"brighten {device}",
-		"dim lights in {location}",
-		"brighten lights in {location}",
-		"set brightness to {intensity}",
-		"set {device} brightness to {intensity}",
-		
-		// Color commands  
-		"set color to {color}",
-		"set {device} color to {color}",
-		"make {device} {color}",
-		
-		// Generic commands
-		"turn on all lights",
-		"turn off all lights",
-		"dim all lights",
-		"brighten all lights",
+// getDeviceExposes gets the expose definitions for a device
+func (g *VoiceIntentGenerator) getDeviceExposes(friendlyName string) []interface{} {
+	deviceCache := GetDeviceCache()
+	for _, device := range deviceCache {
+		if name, exists := device["friendly_name"]; exists && name == friendlyName {
+			if definition, hasDefinition := device["definition"].(map[string]interface{}); hasDefinition {
+				if exposes, hasExposes := definition["exposes"].([]interface{}); hasExposes {
+					return exposes
+				}
+			}
+		}
 	}
-	
-	return templates
+	return []interface{}{}
 }
 
 // Helper functions for cleaning and creating regex patterns

@@ -20,14 +20,19 @@ WORKDIR /app/client
 RUN flutter pub get
 RUN flutter build web --release
 
-# Stage 2: Build the Go server
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS go_builder
+# Stage 2: Build the Go server - Using Debian instead of Alpine for CGO compatibility
+FROM --platform=$BUILDPLATFORM golang:1.23 AS go_builder
 
 ARG TARGETARCH
 ARG TARGETOS
 
-# Install build dependencies
-RUN apk add --no-cache bash git
+# Install build dependencies including audio libraries for malgo
+RUN apt-get update && apt-get install -y \
+    bash \
+    git \
+    gcc \
+    libasound2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -39,16 +44,46 @@ RUN go mod download
 COPY server/ ./server/
 
 # Build the Go application with cross-compilation
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./server
+# CGO_ENABLED=1 for audio libraries like malgo
+RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./server
 
-# Stage 3: Create the final image
-FROM alpine:latest
+# Stage 3: Create the final image using Debian instead of Alpine
+FROM debian:bookworm-slim
 
-# Install runtime dependencies including Node.js for device metadata script
-RUN apk add --no-cache ca-certificates libc6-compat nodejs npm
+# Install runtime dependencies including Python and audio libraries
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    nodejs \
+    npm \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libasound2 \
+    portaudio19-dev \
+    ffmpeg \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create Python virtual environment and install packages
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python packages for voice processing
+RUN pip install --no-cache-dir \
+    numpy \
+    faster-whisper \
+    pyaudio \
+    soundfile \
+    pydub
+
+# Optional: Install PyTorch with CUDA support (uncomment if needed)
+# RUN pip install --no-cache-dir \
+#     torch \
+#     torchaudio \
+#     --index-url https://download.pytorch.org/whl/cu121
 
 # Create a non-root user to run the app
-RUN adduser -D appuser
+RUN useradd -m -u 1000 appuser
 USER appuser
 
 WORKDIR /app
@@ -59,7 +94,7 @@ COPY --from=go_builder /app/sumika-server /app/
 # Copy the Flutter web build to the static directory
 COPY --from=flutter_builder /app/client/build/web /app/web
 
-# Copy server assets (scene images, etc.) from the Go builder stage
+# Copy server assets (scene images, voice assets, etc.) from the Go builder stage
 COPY --from=go_builder /app/server/assets /app/assets
 
 # Copy device metadata script and install dependencies

@@ -76,7 +76,50 @@ func (ds *JSONDataStore) Save() error {
 		return fmt.Errorf("failed to rename temporary file: %w", err)
 	}
 	
+	// Generate voice intents after successful save
+	ds.generateVoiceIntents()
+	
 	return nil
+}
+
+// generateVoiceIntents generates voice intents from current data
+func (ds *JSONDataStore) generateVoiceIntents() {
+	// Determine assets path (voice scripts are in server/assets/voice/)
+	// Get the directory containing the data file and go up to find assets
+	dataDir := filepath.Dir(ds.filePath)
+	
+	// Look for assets directory - try several possible locations
+	possibleAssetsPaths := []string{
+		filepath.Join(dataDir, "..", "server", "assets", "voice"),  // From build-data
+		filepath.Join(dataDir, "assets", "voice"),                  // From root
+		filepath.Join("server", "assets", "voice"),                 // Relative to cwd
+		filepath.Join("assets", "voice"),                           // Direct assets
+	}
+	
+	fmt.Printf("DEBUG: Looking for voice assets directory from dataDir: %s\n", dataDir)
+	var assetsPath string
+	for _, path := range possibleAssetsPaths {
+		fmt.Printf("DEBUG: Checking path: %s\n", path)
+		if _, err := os.Stat(path); err == nil {
+			fmt.Printf("DEBUG: Found assets directory: %s\n", path)
+			assetsPath = path
+			break
+		} else {
+			fmt.Printf("DEBUG: Path not found: %s (error: %v)\n", path, err)
+		}
+	}
+	
+	if assetsPath == "" {
+		// Can't find assets directory, skip intent generation
+		fmt.Printf("Warning: Could not find voice assets directory, skipping intent generation\n")
+		return
+	}
+	
+	// Create intent generator and generate intents
+	generator := NewVoiceIntentGenerator(assetsPath)
+	if err := generator.GenerateIntents(ds.data); err != nil {
+		fmt.Printf("Warning: Failed to generate voice intents: %v\n", err)
+	}
 }
 
 // Load reads data from the JSON file
@@ -116,6 +159,10 @@ func (ds *JSONDataStore) Load() error {
 	}
 	
 	ds.data = &loadedData
+	
+	// Generate voice intents after loading data
+	ds.generateVoiceIntents()
+	
 	return nil
 }
 

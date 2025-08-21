@@ -22,7 +22,7 @@ echo " ---- Build complete, copy assets ----"
 
 chmod +x build/sumika
 
-cp -r server/assets build/assets
+cp -r server/assets build/
 cp -r device-metadata-script build/device-metadata-script
 echo '{' > build/meta.json
 # cat package.json | grep -E '"version"' >> build/meta.json

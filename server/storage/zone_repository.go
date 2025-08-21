@@ -83,7 +83,7 @@ func (r *JSONZoneRepository) RenameZone(oldName, newName string) error {
 	}
 	
 	// Update zone in all device assignments
-	for deviceName, deviceZones := range r.data.DeviceZones {
+	for _, deviceZones := range r.data.DeviceZones {
 		for i, zone := range deviceZones {
 			if zone == oldName {
 				deviceZones[i] = newName

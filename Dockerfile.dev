@@ -2,10 +2,15 @@
 # Much faster builds for backend development
 
 # Stage 1: Build the Go server
-FROM golang:1.23-alpine AS go_builder
+FROM golang:1.23 AS go_builder
 
-# Install build dependencies
-RUN apk add --no-cache bash git
+# Install build dependencies including audio libraries for malgo
+RUN apt-get update && apt-get install -y \
+    bash \
+    git \
+    gcc \
+    libasound2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -17,16 +22,45 @@ RUN go mod download
 COPY server/ ./server/
 
 # Build the Go application (single platform, no cross-compilation)
-RUN CGO_ENABLED=0 go build -o sumika-server ./server
+# CGO_ENABLED=1 for audio libraries like malgo
+RUN CGO_ENABLED=1 go build -v -o sumika-server ./server
 
-# Stage 2: Create the final runtime image
-FROM alpine:latest
+# Stage 2: Create the final runtime image using Debian
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates libc6-compat nodejs npm
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    nodejs \
+    npm \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libasound2 \
+    portaudio19-dev \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create Python virtual environment and install packages
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install PyTorch with CUDA support first
+# RUN pip install --no-cache-dir \
+#     torch \
+#     torchaudio \
+#     --index-url https://download.pytorch.org/whl/cu121
+
+# Install other packages
+RUN pip install --no-cache-dir \
+    numpy \
+    faster-whisper \
+    pyaudio \
+    soundfile \
+    pydub
 
 # Create a non-root user to run the app
-RUN adduser -D appuser
+RUN useradd -m -u 1000 appuser
 USER appuser
 
 WORKDIR /app

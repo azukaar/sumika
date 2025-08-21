@@ -99,6 +99,45 @@ func (h *Hub) run() {
 	}
 }
 
+// BroadcastEvent sends a generic event to all connected clients
+func BroadcastEvent(eventType string, data map[string]interface{}) {
+	if globalHub == nil {
+		return
+	}
+	globalHub.BroadcastEventData(eventType, data)
+}
+
+// BroadcastEventData sends event data to all connected clients
+func (h *Hub) BroadcastEventData(eventType string, data map[string]interface{}) {
+	if h == nil {
+		return
+	}
+	
+	// Add event type and timestamp
+	event := map[string]interface{}{
+		"type":      eventType,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	
+	// Merge data into event
+	for k, v := range data {
+		event[k] = v
+	}
+	
+	message, err := json.Marshal(event)
+	if err != nil {
+		fmt.Printf("[WEBSOCKET] Error marshaling event: %v\n", err)
+		return
+	}
+	
+	fmt.Printf("[WEBSOCKET] Broadcasting event %s: %s\n", eventType, string(message))
+	select {
+	case h.broadcast <- message:
+	default:
+		fmt.Println("[WEBSOCKET] Broadcast channel full, dropping message")
+	}
+}
+
 // BroadcastDeviceUpdate sends a device state update to all connected clients
 func (h *Hub) BroadcastDeviceUpdate(deviceName string, newState, oldState map[string]interface{}) {
 	if h == nil {

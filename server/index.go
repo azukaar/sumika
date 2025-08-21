@@ -12,6 +12,7 @@ import (
 	"github.com/azukaar/sumika/server/zigbee2mqtt"
 	"github.com/azukaar/sumika/server/manage"
 	"github.com/azukaar/sumika/server/realtime"
+	"github.com/azukaar/sumika/server/services"
 )
 
 func main() {
@@ -38,6 +39,12 @@ func main() {
 	manage.GetDeviceState = func(deviceName string) map[string]interface{} {
 		return zigbee2mqtt.GetDeviceState(deviceName)
 	}
+
+	// Initialize voice service with device command callback
+	voiceService := services.NewVoiceService(func(deviceName, command string) {
+		zigbee2mqtt.SetDeviceState(deviceName, command)
+	})
+	manage.InitVoiceService(voiceService)
 
 	go (func() {
 		r := mux.NewRouter()
@@ -102,6 +109,13 @@ func main() {
 		r.HandleFunc("/api/manage/scene-management/{id}", manage.API_DeleteScene).Methods("DELETE")
 		r.HandleFunc("/api/manage/scene-management/{id}/duplicate", manage.API_DuplicateScene).Methods("POST")
 		r.HandleFunc("/api/manage/scene-management/{id}/test", manage.API_TestSceneInZone).Methods("POST")
+		
+		// Voice recognition endpoints
+		r.HandleFunc("/api/voice/config", manage.API_GetVoiceConfig).Methods("GET")
+		r.HandleFunc("/api/voice/config", manage.API_UpdateVoiceConfig).Methods("POST")
+		r.HandleFunc("/api/voice/devices", manage.API_GetVoiceDevices).Methods("GET")
+		r.HandleFunc("/api/voice/history", manage.API_GetVoiceHistory).Methods("GET")
+		r.HandleFunc("/api/voice/status", manage.API_GetVoiceStatus).Methods("GET")
 		
 		// WebSocket endpoint for real-time updates
 		r.HandleFunc("/ws", realtime.HandleWebSocket)

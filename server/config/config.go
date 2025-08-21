@@ -29,6 +29,9 @@ type Config struct {
 	// Zigbee configuration
 	Zigbee ZigbeeConfig `json:"zigbee"`
 	
+	// Voice recognition configuration
+	Voice VoiceConfig `json:"voice"`
+	
 	// Development/Debug settings
 	Debug DebugConfig `json:"debug"`
 }
@@ -105,6 +108,17 @@ type ZigbeeConfig struct {
 	DeviceTopic   string `json:"device_topic"`
 	StatusTopic   string `json:"status_topic"`
 	CommandTopic  string `json:"command_topic"`
+}
+
+// VoiceConfig holds voice recognition configuration
+type VoiceConfig struct {
+	Enabled       bool    `json:"enabled"`
+	WhisperModel  string  `json:"whisper_model"`
+	WhisperDevice string  `json:"whisper_device"`
+	ComputeType   string  `json:"compute_type"`
+	InputDevice   string  `json:"input_device"`
+	OutputDevice  string  `json:"output_device"`
+	WakeThreshold float64 `json:"wake_threshold"`
 }
 
 // DebugConfig holds debug and development settings
@@ -218,6 +232,15 @@ func getDefaultConfig() *Config {
 			StatusTopic:  "zigbee2mqtt/bridge/state",
 			CommandTopic: "zigbee2mqtt/bridge/request",
 		},
+		Voice: VoiceConfig{
+			Enabled:       true,
+			WhisperModel:  "base",
+			WhisperDevice: "cpu",
+			ComputeType:   "int8",
+			InputDevice:   "default",
+			OutputDevice:  "default",
+			WakeThreshold: 0.5,
+		},
 		Debug: DebugConfig{
 			Enabled:                false,
 			ShowInternalErrors:     false,
@@ -292,6 +315,31 @@ func loadFromEnvironment(config *Config) {
 	}
 	if password := os.Getenv("SUMIKA_MQTT_PASSWORD"); password != "" {
 		config.Zigbee.MQTTPassword = password
+	}
+
+	// Voice configuration
+	if enabled := os.Getenv("SUMIKA_VOICE_ENABLED"); enabled != "" {
+		config.Voice.Enabled = enabled == "true"
+	}
+	if model := os.Getenv("SUMIKA_WHISPER_MODEL"); model != "" {
+		config.Voice.WhisperModel = model
+	}
+	if device := os.Getenv("SUMIKA_WHISPER_DEVICE"); device != "" {
+		config.Voice.WhisperDevice = device
+	}
+	if computeType := os.Getenv("SUMIKA_COMPUTE_TYPE"); computeType != "" {
+		config.Voice.ComputeType = computeType
+	}
+	if inputDevice := os.Getenv("SUMIKA_INPUT_DEVICE"); inputDevice != "" {
+		config.Voice.InputDevice = inputDevice
+	}
+	if outputDevice := os.Getenv("SUMIKA_OUTPUT_DEVICE"); outputDevice != "" {
+		config.Voice.OutputDevice = outputDevice
+	}
+	if threshold := os.Getenv("SUMIKA_WAKE_THRESHOLD"); threshold != "" {
+		if t, err := strconv.ParseFloat(threshold, 64); err == nil {
+			config.Voice.WakeThreshold = t
+		}
 	}
 
 	// Debug configuration

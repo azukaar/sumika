@@ -153,9 +153,9 @@ func NewDeviceMetadataService() *DeviceMetadataService {
 	}
 }
 
-// parseNodeScriptOutput extracts and parses JSON from Node script output,
-// handling console log contamination from zigbee-herdsman-converters
-func parseNodeScriptOutput(output []byte, target interface{}) error {
+// ParseScriptOutput extracts and parses JSON from script output,
+// handling console log contamination from various scripts
+func ParseScriptOutput(output []byte, target interface{}) error {
 	outputStr := string(output)
 	
 	// Extract JSON portion (first { to last })
@@ -224,7 +224,7 @@ func (s *DeviceMetadataService) GetDeviceMetadata(modelID, manufacturerName stri
 
 	// Parse the JSON output using utility function
 	var metadata DeviceMetadata
-	if err := parseNodeScriptOutput(output, &metadata); err != nil {
+	if err := ParseScriptOutput(output, &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse device metadata: %v", err)
 	}
 
@@ -259,7 +259,7 @@ func (s *DeviceMetadataService) GetDeviceByModel(model string) (*DeviceMetadata,
 
 	// Parse the JSON output using utility function
 	var metadata DeviceMetadata
-	if err := parseNodeScriptOutput(output, &metadata); err != nil {
+	if err := ParseScriptOutput(output, &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse device metadata: %v", err)
 	}
 
@@ -285,7 +285,7 @@ func (s *DeviceMetadataService) SearchDevices(query string) ([]map[string]interf
 		Query   string                   `json:"query"`
 		Devices []map[string]interface{} `json:"devices"`
 	}
-	if err := parseNodeScriptOutput(output, &result); err != nil {
+	if err := ParseScriptOutput(output, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse search results: %v", err)
 	}
 
@@ -304,7 +304,7 @@ func (s *DeviceMetadataService) ListVendors() ([]string, error) {
 		Count   int      `json:"count"`
 		Vendors []string `json:"vendors"`
 	}
-	if err := parseNodeScriptOutput(output, &result); err != nil {
+	if err := ParseScriptOutput(output, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse vendors: %v", err)
 	}
 
@@ -320,7 +320,7 @@ func (s *DeviceMetadataService) GetVersion() (map[string]interface{}, error) {
 	}
 
 	var result map[string]interface{}
-	if err := parseNodeScriptOutput(output, &result); err != nil {
+	if err := ParseScriptOutput(output, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse version info: %v", err)
 	}
 

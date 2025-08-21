@@ -110,3 +110,9 @@ cd client
 flutter run -d [device]
 ```
 
+
+```bash
+$env:CGO_ENABLED = 1
+go build -ldflags="-linkmode=internal" -o build/sumika.exe ./server/
+```
+

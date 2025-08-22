@@ -500,13 +500,11 @@ func (vr *VoiceRunner) run() {
                     if event.Text != "" {
                         intentResult := processIntent(event.Text)
                         if intentResult != nil {
-                            if intentResult.Intent != "" {
-                                log.Printf("🎯 INTENT: %s", intentResult.Intent)
-                                if len(intentResult.Entities) > 0 {
-                                    log.Printf("📋 ENTITIES: %v", intentResult.Entities)
-                                }
-                                if intentResult.Command != "" {
-                                    log.Printf("⚡ COMMAND: %s", intentResult.Command)
+                            if intentResult.Success {
+                                log.Printf("🎯 SUCCESS: Processed %d device commands", len(intentResult.Commands))
+                                for i, cmd := range intentResult.Commands {
+                                    log.Printf("📋 COMMAND %d: %s (%s) -> %s = %v", 
+                                        i+1, cmd.CustomName, cmd.IEEEAddress, cmd.Property, cmd.Value)
                                 }
                                 
                                 // Call intent callback
@@ -514,7 +512,7 @@ func (vr *VoiceRunner) run() {
                                     vr.callbacks.OnIntent(event.Text, intentResult)
                                 }
                             } else {
-                                log.Printf("❓ No intent recognized")
+                                log.Printf("❓ Intent processing failed: %s", intentResult.Error)
                             }
                         }
                     }

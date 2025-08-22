@@ -1,0 +1,1982 @@
+{
+  "devices": [
+    {
+      "friendly_name": "0x001788010c7caac9",
+      "ieee_address": "0x001788010c7caac9",
+      "custom_name": "Right Lamp",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "",
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
+            "full": 254,
+            "higher": 254,
+            "highest": 254,
+            "increase": 254,
+            "lower": 203.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 254
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 305.6,
+            "decrease": 305.6,
+            "full": 500,
+            "higher": 444.4,
+            "highest": 500,
+            "increase": 444.4,
+            "lower": 305.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 444.4
+          },
+          "current_value": 375
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 153
+        }
+      ],
+      "voice_patterns": [
+        "right lamp[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010b9c71d2",
+      "ieee_address": "0x001788010b9c71d2",
+      "custom_name": "Left Lamp 1",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
+            "full": 254,
+            "higher": 254,
+            "highest": 254,
+            "increase": 254,
+            "lower": 203.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 254
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 305.6,
+            "decrease": 305.6,
+            "full": 500,
+            "higher": 444.4,
+            "highest": 500,
+            "increase": 444.4,
+            "lower": 305.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 444.4
+          },
+          "current_value": 375
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 141
+        }
+      ],
+      "voice_patterns": [
+        "left lamp 1[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010b99ac0e",
+      "ieee_address": "0x001788010b99ac0e",
+      "custom_name": "Left Lamp 2",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
+            "full": 254,
+            "higher": 254,
+            "highest": 254,
+            "increase": 254,
+            "lower": 203.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 254
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 305.6,
+            "decrease": 305.6,
+            "full": 500,
+            "higher": 444.4,
+            "highest": 500,
+            "increase": 444.4,
+            "lower": 305.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 444.4
+          },
+          "current_value": 375
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 147
+        }
+      ],
+      "voice_patterns": [
+        "left lamp 2[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010b9c7a3e",
+      "ieee_address": "0x001788010b9c7a3e",
+      "custom_name": "Left Lamp 3",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
+            "full": 254,
+            "higher": 254,
+            "highest": 254,
+            "increase": 254,
+            "lower": 203.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 254
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 305.6,
+            "decrease": 305.6,
+            "full": 500,
+            "higher": 444.4,
+            "highest": 500,
+            "increase": 444.4,
+            "lower": 305.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 444.4
+          },
+          "current_value": 375
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 147
+        }
+      ],
+      "voice_patterns": [
+        "left lamp 3[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010c7fbcaf",
+      "ieee_address": "0x001788010c7fbcaf",
+      "custom_name": "TV Lamp",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
+            "full": 254,
+            "higher": 254,
+            "highest": 254,
+            "increase": 254,
+            "lower": 203.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 254
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 305.6,
+            "decrease": 305.6,
+            "full": 500,
+            "higher": 444.4,
+            "highest": 500,
+            "increase": 444.4,
+            "lower": 305.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 444.4
+          },
+          "current_value": 375
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 144
+        }
+      ],
+      "voice_patterns": [
+        "tv lamp[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0xa4c1385961d5015e",
+      "ieee_address": "0xa4c1385961d5015e",
+      "custom_name": "Left plug",
+      "categories": [
+        "switch",
+        "plug",
+        "outlet"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          },
+          "current_value": "previous"
+        },
+        {
+          "name": "power",
+          "type": "numeric",
+          "access": 5,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "W",
+          "commands": {},
+          "current_value": 18
+        },
+        {
+          "name": "voltage",
+          "type": "numeric",
+          "access": 5,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "V",
+          "commands": {},
+          "current_value": 234
+        },
+        {
+          "name": "current",
+          "type": "numeric",
+          "access": 5,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "A",
+          "commands": {},
+          "current_value": 0.14
+        },
+        {
+          "name": "energy",
+          "type": "numeric",
+          "access": 5,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "kWh",
+          "commands": {},
+          "current_value": 4
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 189
+        }
+      ],
+      "voice_patterns": [
+        "left plug[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010b9c7af5",
+      "ieee_address": "0x001788010b9c7af5",
+      "custom_name": "Lamp",
+      "categories": [
+        "light",
+        "lamp",
+        "bulb"
+      ],
+      "zones": [
+        "bedroom"
+      ],
+      "properties": [
+        {
+          "name": "state",
+          "type": "binary",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "ON",
+            "OFF",
+            "TOGGLE"
+          ],
+          "commands": {
+            "switch off": "OFF",
+            "switch on": "ON",
+            "toggle": "TOGGLE",
+            "turn off": "OFF",
+            "turn on": "ON"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 0,
+          "max_value": 254,
+          "commands": {
+            "brighter": 250.8,
+            "decrease": 149.2,
+            "dimmer": 149.2,
+            "full": 254,
+            "higher": 250.8,
+            "highest": 254,
+            "increase": 250.8,
+            "lower": 149.2,
+            "lowest": 0,
+            "max": 254,
+            "maximum": 254,
+            "min": 0,
+            "minimum": 0
+          },
+          "current_value": 200
+        },
+        {
+          "name": "color_temp",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            }
+          ],
+          "commands": {
+            "cooler": 337.6,
+            "decrease": 337.6,
+            "full": 500,
+            "higher": 476.4,
+            "highest": 500,
+            "increase": 476.4,
+            "lower": 337.6,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 476.4
+          },
+          "current_value": 407
+        },
+        {
+          "name": "color_temp_startup",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "min_value": 153,
+          "max_value": 500,
+          "unit": "mired",
+          "presets": [
+            {
+              "name": "coolest",
+              "value": 153,
+              "description": "Coolest temperature supported"
+            },
+            {
+              "name": "cool",
+              "value": 250,
+              "description": "Cool temperature (250 mireds / 4000 Kelvin)"
+            },
+            {
+              "name": "neutral",
+              "value": 370,
+              "description": "Neutral temperature (370 mireds / 2700 Kelvin)"
+            },
+            {
+              "name": "warm",
+              "value": 454,
+              "description": "Warm temperature (454 mireds / 2200 Kelvin)"
+            },
+            {
+              "name": "warmest",
+              "value": 500,
+              "description": "Warmest temperature supported"
+            },
+            {
+              "name": "previous",
+              "value": 65535,
+              "description": "Restore previous color_temp on cold power on"
+            }
+          ],
+          "commands": {
+            "cooler": 257.1,
+            "decrease": 257.1,
+            "full": 500,
+            "higher": 395.9,
+            "highest": 500,
+            "increase": 395.9,
+            "lower": 257.1,
+            "lowest": 153,
+            "max": 500,
+            "maximum": 500,
+            "min": 153,
+            "minimum": 153,
+            "warmer": 395.9
+          }
+        },
+        {
+          "name": "x",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "y",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "hue",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "saturation",
+          "type": "numeric",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "commands": {
+            "decrease": -10,
+            "higher": 10,
+            "increase": 10,
+            "lower": -10
+          }
+        },
+        {
+          "name": "power_on_behavior",
+          "type": "enum",
+          "access": 7,
+          "is_readable": true,
+          "is_writable": true,
+          "values": [
+            "off",
+            "on",
+            "toggle",
+            "previous"
+          ],
+          "commands": {
+            "off": "off",
+            "on": "on",
+            "previous": "previous",
+            "toggle": "toggle"
+          }
+        },
+        {
+          "name": "effect",
+          "type": "enum",
+          "access": 2,
+          "is_readable": false,
+          "is_writable": true,
+          "values": [
+            "blink",
+            "breathe",
+            "okay",
+            "channel_change",
+            "candle",
+            "fireplace",
+            "colorloop",
+            "finish_effect",
+            "stop_effect",
+            "stop_hue_effect"
+          ],
+          "commands": {
+            "blink": "blink",
+            "breathe": "breathe",
+            "candle": "candle",
+            "channel_change": "channel_change",
+            "colorloop": "colorloop",
+            "finish_effect": "finish_effect",
+            "fireplace": "fireplace",
+            "okay": "okay",
+            "stop_effect": "stop_effect",
+            "stop_hue_effect": "stop_hue_effect"
+          }
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 63
+        }
+      ],
+      "voice_patterns": [
+        "lamp[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0xa4c138a2310cdb00",
+      "ieee_address": "0xa4c138a2310cdb00",
+      "custom_name": "Air Sensor",
+      "categories": [
+        "sensor"
+      ],
+      "zones": [
+        "bedroom"
+      ],
+      "properties": [
+        {
+          "name": "temperature",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "°C",
+          "commands": {}
+        },
+        {
+          "name": "humidity",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "%",
+          "commands": {}
+        },
+        {
+          "name": "co2",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "ppm",
+          "commands": {}
+        },
+        {
+          "name": "voc",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "ppb",
+          "commands": {}
+        },
+        {
+          "name": "formaldehyd",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "unit": "µg/m³",
+          "commands": {}
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {}
+        }
+      ],
+      "voice_patterns": [
+        "air sensor[s]?"
+      ]
+    },
+    {
+      "friendly_name": "0x001788010895b08c",
+      "ieee_address": "0x001788010895b08c",
+      "custom_name": "Living Room Switch",
+      "categories": [
+        "button",
+        "remote",
+        "controller"
+      ],
+      "zones": [
+        "living_room"
+      ],
+      "properties": [
+        {
+          "name": "battery",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 100,
+          "unit": "%",
+          "commands": {},
+          "current_value": 100
+        },
+        {
+          "name": "action",
+          "type": "enum",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "values": [
+            "on",
+            "off",
+            "press",
+            "hold",
+            "release"
+          ],
+          "commands": {},
+          "current_value": "off"
+        },
+        {
+          "name": "linkquality",
+          "type": "numeric",
+          "access": 1,
+          "is_readable": true,
+          "is_writable": false,
+          "min_value": 0,
+          "max_value": 255,
+          "unit": "lqi",
+          "commands": {},
+          "current_value": 144
+        }
+      ],
+      "voice_patterns": [
+        "living room switch[s]?"
+      ]
+    }
+  ],
+  "zones": {
+    "bedroom": [
+      "0x001788010b9c7af5",
+      "0xa4c138a2310cdb00"
+    ],
+    "living_room": [
+      "0x001788010c7caac9",
+      "0x001788010b9c71d2",
+      "0x001788010b99ac0e",
+      "0x001788010b9c7a3e",
+      "0x001788010c7fbcaf",
+      "0xa4c1385961d5015e",
+      "0x001788010895b08c"
+    ]
+  }
+}

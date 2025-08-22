@@ -35,17 +35,18 @@ func buildPath(relativePath string) string {
 
 // DeviceProperty represents a single property with its capabilities
 type DeviceProperty struct {
-	Name         string            `json:"name"`
-	Type         string            `json:"type"`           // binary, numeric, enum
-	Access       int               `json:"access"`         // 1=read, 2=write, 4=state_set
-	IsReadable   bool              `json:"is_readable"`
-	IsWritable   bool              `json:"is_writable"`
-	MinValue     *float64          `json:"min_value,omitempty"`
-	MaxValue     *float64          `json:"max_value,omitempty"`
-	Unit         string            `json:"unit,omitempty"`
-	Values       []string          `json:"values,omitempty"`      // For enums
-	Presets      []DevicePreset    `json:"presets,omitempty"`     // For numeric with presets
-	Commands     []string          `json:"commands"`              // Voice commands for this property
+	Name         string                 `json:"name"`
+	Type         string                 `json:"type"`           // binary, numeric, enum
+	Access       int                    `json:"access"`         // 1=read, 2=write, 4=state_set
+	IsReadable   bool                   `json:"is_readable"`
+	IsWritable   bool                   `json:"is_writable"`
+	MinValue     *float64               `json:"min_value,omitempty"`
+	MaxValue     *float64               `json:"max_value,omitempty"`
+	Unit         string                 `json:"unit,omitempty"`
+	Values       []string               `json:"values,omitempty"`      // For enums
+	Presets      []DevicePreset         `json:"presets,omitempty"`     // For numeric with presets
+	Commands     map[string]interface{} `json:"commands"`              // Voice commands mapped to resulting states
+	CurrentValue interface{}            `json:"current_value,omitempty"` // Current state of the property
 }
 
 type DevicePreset struct {
@@ -59,6 +60,7 @@ type Device struct {
 	FriendlyName   string            `json:"friendly_name"`
 	IEEEAddress    string            `json:"ieee_address"`
 	CustomName     string            `json:"custom_name,omitempty"`
+	Categories     []string          `json:"categories"`      // Device category with synonyms
 	Zones          []string          `json:"zones"`
 	Properties     []DeviceProperty  `json:"properties"`      // Detailed property info with commands
 	VoicePatterns  []string          `json:"voice_patterns"`  // How users can refer to this device
@@ -66,8 +68,6 @@ type Device struct {
 
 // VoiceIntentData represents the structure that matches intent.py format
 type VoiceIntentData struct {
-	IntentPatterns   map[string][]string            `json:"intent_patterns"`
-	EntityPatterns   map[string]map[string]string   `json:"entity_patterns"`
 	Devices          []Device                       `json:"devices"`              // Clean list of all devices with property-specific commands
 	Zones            map[string][]string            `json:"zones"`               // zone -> [friendly_names]
 }
@@ -95,8 +95,6 @@ func (g *VoiceIntentGenerator) createIntentData() *VoiceIntentData {
 	devices, zones := g.createDevicesAndZones()
 	
 	intents := &VoiceIntentData{
-		IntentPatterns:   g.createIntentPatterns(),
-		EntityPatterns:   g.createEntityPatterns(devices),
 		Devices:          devices,
 		Zones:            zones,
 	}
@@ -137,10 +135,15 @@ func (g *VoiceIntentGenerator) createDevicesAndZones() ([]Device, map[string][]s
 			// Create voice patterns (how users can refer to this device)
 			voicePatterns := g.createVoicePatterns(friendlyName, customName)
 			
+			// Get device category and its synonyms
+			category := g.getDeviceCategory(friendlyName, deviceData)
+			categories := g.getCategoryWithSynonyms(category)
+			
 			device := Device{
 				FriendlyName:  friendlyName,
 				IEEEAddress:   ieeeAddr,
 				CustomName:    customName,
+				Categories:    categories,
 				Zones:         deviceZones,
 				Properties:    properties,
 				VoicePatterns: voicePatterns,
@@ -175,8 +178,11 @@ func (g *VoiceIntentGenerator) createDeviceProperties(friendlyName string) []Dev
 	// Get the actual expose definitions for this device
 	exposes := g.getDeviceExposes(friendlyName)
 	
+	// Get current device state
+	deviceState := g.getDeviceState(friendlyName)
+	
 	for _, expose := range exposes {
-		deviceProps := g.parseExposeToProperties(expose)
+		deviceProps := g.parseExposeToProperties(expose, deviceState)
 		properties = append(properties, deviceProps...)
 	}
 	
@@ -184,7 +190,7 @@ func (g *VoiceIntentGenerator) createDeviceProperties(friendlyName string) []Dev
 }
 
 // parseExposeToProperties converts an expose definition to DeviceProperty objects
-func (g *VoiceIntentGenerator) parseExposeToProperties(expose interface{}) []DeviceProperty {
+func (g *VoiceIntentGenerator) parseExposeToProperties(expose interface{}, deviceState map[string]interface{}) []DeviceProperty {
 	var properties []DeviceProperty
 	
 	exposeMap, ok := expose.(map[string]interface{})
@@ -195,13 +201,13 @@ func (g *VoiceIntentGenerator) parseExposeToProperties(expose interface{}) []Dev
 	// Handle expose with features (like lights)
 	if features, hasFeatures := exposeMap["features"].([]interface{}); hasFeatures {
 		for _, feature := range features {
-			properties = append(properties, g.parseExposeToProperties(feature)...)
+			properties = append(properties, g.parseExposeToProperties(feature, deviceState)...)
 		}
 		return properties
 	}
 	
 	// Parse single property
-	property := g.parseExposeProperty(exposeMap)
+	property := g.parseExposeProperty(exposeMap, deviceState)
 	if property.Name != "" {
 		properties = append(properties, property)
 	}
@@ -210,12 +216,22 @@ func (g *VoiceIntentGenerator) parseExposeToProperties(expose interface{}) []Dev
 }
 
 // parseExposeProperty parses a single expose definition into a DeviceProperty
-func (g *VoiceIntentGenerator) parseExposeProperty(expose map[string]interface{}) DeviceProperty {
+func (g *VoiceIntentGenerator) parseExposeProperty(expose map[string]interface{}, deviceState map[string]interface{}) DeviceProperty {
 	property := DeviceProperty{}
 	
 	// Get basic info
 	if name, hasName := expose["property"].(string); hasName {
 		property.Name = name
+		// Get current value for THIS specific property from device state
+		if deviceState != nil {
+			// The actual property values are nested under deviceState["state"]
+			// e.g., deviceState["state"]["brightness"], deviceState["state"]["state"], etc.
+			if stateMap, hasState := deviceState["state"].(map[string]interface{}); hasState {
+				if currentVal, hasVal := stateMap[name]; hasVal {
+					property.CurrentValue = currentVal
+				}
+			}
+		}
 	}
 	
 	if propType, hasType := expose["type"].(string); hasType {
@@ -305,60 +321,128 @@ func (g *VoiceIntentGenerator) parseBinaryProperty(expose map[string]interface{}
 }
 
 // generatePropertyCommands generates voice commands for a specific property
-func (g *VoiceIntentGenerator) generatePropertyCommands(property DeviceProperty) []string {
+func (g *VoiceIntentGenerator) generatePropertyCommands(property DeviceProperty) map[string]interface{} {
 	// Only generate commands for writable properties
 	if !property.IsWritable {
-		return []string{}
+		return map[string]interface{}{}
 	}
 	
-	var commands []string
-	commandSet := make(map[string]bool)
-	
-	addCommand := func(cmd string) {
-		if !commandSet[cmd] {
-			commands = append(commands, cmd)
-			commandSet[cmd] = true
-		}
-	}
+	commands := make(map[string]interface{})
 	
 	switch property.Type {
 	case "binary":
-		addCommand("turn on {device}")
-		addCommand("turn off {device}")
-		addCommand("switch on {device}")
-		addCommand("switch off {device}")
-		addCommand("toggle {device}")
+		// For binary properties, determine on/off values
+		var onValue, offValue interface{}
+		onValue = true  // default
+		offValue = false // default
 		
-	case "numeric":
-		// Relative commands
-		addCommand("brighter {device}")
-		addCommand("dimmer {device}")
-		addCommand("louder {device}")
-		addCommand("quieter {device}")
-		addCommand("warmer {device}")
-		addCommand("cooler {device}")
-		addCommand("faster {device}")
-		addCommand("slower {device}")
-		addCommand("higher {device}")
-		addCommand("lower {device}")
-		addCommand("increase {device}")
-		addCommand("decrease {device}")
-		
-		// Absolute commands
-		addCommand("set {device} to {intensity}")
-		addCommand("set {device} " + property.Name + " to {intensity}")
-		
-		// Preset commands
-		for _, preset := range property.Presets {
-			addCommand("set {device} to " + preset.Name)
-			addCommand("set to " + preset.Name)
+		// Check if specific values are defined
+		if len(property.Values) >= 2 {
+			for _, val := range property.Values {
+				valLower := strings.ToLower(val)
+				if valLower == "on" {
+					onValue = val
+				} else if valLower == "off" {
+					offValue = val
+				}
+			}
 		}
 		
+		commands["turn on"] = onValue
+		commands["turn off"] = offValue
+		commands["switch on"] = onValue
+		commands["switch off"] = offValue
+		commands["toggle"] = "TOGGLE" // Special value to indicate toggle
+		
+	case "numeric":
+		// Get current value as float
+		var currentValue float64
+		if property.CurrentValue != nil {
+			switch v := property.CurrentValue.(type) {
+			case float64:
+				currentValue = v
+			case int:
+				currentValue = float64(v)
+			case int64:
+				currentValue = float64(v)
+			default:
+				// If we can't get current value, use midpoint
+				if property.MinValue != nil && property.MaxValue != nil {
+					currentValue = (*property.MinValue + *property.MaxValue) / 2
+				}
+			}
+		} else if property.MinValue != nil && property.MaxValue != nil {
+			// No current value, use midpoint
+			currentValue = (*property.MinValue + *property.MaxValue) / 2
+		}
+		
+		// Calculate actual resulting values for relative commands
+		var higherValue, lowerValue float64
+		if property.MinValue != nil && property.MaxValue != nil {
+			range_ := *property.MaxValue - *property.MinValue
+			step := range_ * 0.2 // 20% step
+			higherValue = currentValue + step
+			lowerValue = currentValue - step
+			
+			// Clamp to min/max
+			if higherValue > *property.MaxValue {
+				higherValue = *property.MaxValue
+			}
+			if lowerValue < *property.MinValue {
+				lowerValue = *property.MinValue
+			}
+		} else {
+			// Default step of 10
+			higherValue = currentValue + 10
+			lowerValue = currentValue - 10
+		}
+		
+		// Property-specific relative commands based on property name
+		propLower := strings.ToLower(property.Name)
+		
+		if strings.Contains(propLower, "brightness") || strings.Contains(propLower, "dimmer") {
+			commands["brighter"] = higherValue
+			commands["dimmer"] = lowerValue
+		}
+		if strings.Contains(propLower, "volume") || strings.Contains(propLower, "sound") {
+			commands["louder"] = higherValue
+			commands["quieter"] = lowerValue
+		}
+		if strings.Contains(propLower, "temperature") || strings.Contains(propLower, "temp") {
+			commands["warmer"] = higherValue
+			commands["cooler"] = lowerValue
+		}
+		if strings.Contains(propLower, "speed") || strings.Contains(propLower, "fan") {
+			commands["faster"] = higherValue
+			commands["slower"] = lowerValue
+		}
+		
+		// Generic relative commands that work for any numeric property
+		commands["higher"] = higherValue
+		commands["lower"] = lowerValue
+		commands["increase"] = higherValue
+		commands["decrease"] = lowerValue
+		
+		// Min/max commands
+		if property.MinValue != nil {
+			commands["minimum"] = *property.MinValue
+			commands["min"] = *property.MinValue
+			commands["lowest"] = *property.MinValue
+		}
+		if property.MaxValue != nil {
+			commands["maximum"] = *property.MaxValue
+			commands["max"] = *property.MaxValue
+			commands["highest"] = *property.MaxValue
+			commands["full"] = *property.MaxValue
+		}
+		
+						
 	case "enum":
 		for _, value := range property.Values {
-			addCommand("set {device} to " + value)
-			addCommand("set " + value)
-			addCommand(value + " {device}")
+			commands[value] = value
+			if value != "" {
+				commands[value] = value
+			}
 		}
 	}
 	
@@ -386,115 +470,6 @@ func (g *VoiceIntentGenerator) isIEEEAddress(name string) bool {
 	return len(name) == 18 && name[:2] == "0x"
 }
 
-// createIntentPatterns creates static intent patterns
-func (g *VoiceIntentGenerator) createIntentPatterns() map[string][]string {
-	return map[string][]string{
-		"switch_on": {
-			"switch on|turn on|activate|enable",
-			"light up|illuminate",
-		},
-		"switch_off": {
-			"switch off|turn off|deactivate|disable",
-			"shut off",
-		},
-		"dim": {
-			"dim|lower|reduce brightness",
-			"make.*darker",
-		},
-		"brighten": {
-			"brighten|increase brightness|make.*brighter",
-			"set brightness.*high",
-		},
-		"set_brightness": {
-			"set brightness to|brightness to|set.*brightness.*to",
-		},
-		"set_color": {
-			"set color to|change color to|make.*color",
-		},
-	}
-}
-
-// createEntityPatterns creates entity patterns from devices
-func (g *VoiceIntentGenerator) createEntityPatterns(devices []Device) map[string]map[string]string {
-	entities := map[string]map[string]string{
-		"device":    g.createDevicePatterns(devices),
-		"location":  g.createLocationPatterns(),
-		"intensity": g.createIntensityPatterns(),
-		"color":     g.createColorPatterns(),
-	}
-	return entities
-}
-
-// createDevicePatterns creates device patterns from devices list
-func (g *VoiceIntentGenerator) createDevicePatterns(devices []Device) map[string]string {
-	patterns := make(map[string]string)
-	
-	// Add generic device patterns
-	patterns["light"] = "light[s]?"
-	patterns["lights"] = "lights|all\\s+light[s]?"
-	patterns["lamp"] = "lamp[s]?"
-	patterns["switch"] = "switch[es]?"
-	
-	// Add patterns for each device
-	for _, device := range devices {
-		// Add friendly name pattern
-		cleanName := g.cleanDeviceName(device.FriendlyName)
-		if cleanName != "" {
-			patterns[cleanName] = g.createDeviceRegex(device.FriendlyName)
-		}
-		
-		// Add custom name pattern if it exists
-		if device.CustomName != "" {
-			customClean := g.cleanDeviceName(device.CustomName)
-			if customClean != "" {
-				patterns[customClean] = g.createDeviceRegex(device.CustomName)
-			}
-		}
-	}
-	
-	return patterns
-}
-
-// createLocationPatterns creates location patterns from zones
-func (g *VoiceIntentGenerator) createLocationPatterns() map[string]string {
-	locations := make(map[string]string)
-		
-	// Add zones from storage using storage function
-	zones := GetAllZones()
-	for _, zone := range zones {
-		if zone != "" {
-			cleanZone := g.cleanZoneName(zone)
-			pattern := g.createZoneRegex(zone)
-			locations[cleanZone] = pattern
-		}
-	}
-	
-	return locations
-}
-
-// createIntensityPatterns creates intensity patterns for brightness/levels
-func (g *VoiceIntentGenerator) createIntensityPatterns() map[string]string {
-	return map[string]string{
-		"percentage": "(\\d+)\\s*%|(\\d+)\\s*percent",
-		"level":      "level\\s*(\\d+)|brightness\\s*(\\d+)",
-	}
-}
-
-// createColorPatterns creates color patterns
-func (g *VoiceIntentGenerator) createColorPatterns() map[string]string {
-	return map[string]string{
-		"red":    "red",
-		"blue":   "blue",
-		"green":  "green",
-		"yellow": "yellow",
-		"white":  "white",
-		"warm":   "warm|warm\\s*white",
-		"cool":   "cool|cool\\s*white|cold",
-		"purple": "purple|violet",
-		"orange": "orange",
-		"pink":   "pink",
-	}
-}
 
 // getDeviceExposes gets the expose definitions for a device
 func (g *VoiceIntentGenerator) getDeviceExposes(friendlyName string) []interface{} {
@@ -511,6 +486,60 @@ func (g *VoiceIntentGenerator) getDeviceExposes(friendlyName string) []interface
 	return []interface{}{}
 }
 
+// getDeviceState gets the current state values for a device
+func (g *VoiceIntentGenerator) getDeviceState(friendlyName string) map[string]interface{} {
+	deviceCache := GetDeviceCache()
+	for _, device := range deviceCache {
+		if name, exists := device["friendly_name"]; exists && name == friendlyName {
+			// Return the entire device map which contains the current state values
+			return device
+		}
+	}
+	return nil
+}
+
+// getCategoryWithSynonyms returns a category with its natural language synonyms
+func (g *VoiceIntentGenerator) getCategoryWithSynonyms(category string) []string {
+	switch category {
+	case "light":
+		return []string{"light", "lamp", "bulb"}
+	case "switch":
+		return []string{"switch", "plug", "outlet"}
+	case "sensor":
+		return []string{"sensor"}
+	case "button":
+		return []string{"button", "remote", "controller"}
+	case "door_window":
+		return []string{"door", "window", "contact", "door sensor", "window sensor"}
+	case "motion":
+		return []string{"motion", "occupancy", "presence", "motion sensor"}
+	case "thermostat":
+		return []string{"thermostat", "climate", "temperature control", "hvac"}
+	case "unknown":
+		return []string{} // Skip unknown devices
+	default:
+		// For any custom category, return it as-is
+		return []string{category}
+	}
+}
+
+// getDeviceCategory extracts the category from device data or metadata
+func (g *VoiceIntentGenerator) getDeviceCategory(friendlyName string, deviceData map[string]interface{}) string {
+	// First check for custom category in metadata
+	if metadata, exists := GetDeviceMetadata(friendlyName); exists {
+		if customCategory, hasCategory := metadata["custom_category"]; hasCategory {
+			return customCategory
+		}
+	}
+	
+	// Check if category is already in the device cache
+	if category, hasCategory := deviceData["category"].(string); hasCategory {
+		return category
+	}
+	
+	return "unknown"
+}
+
 // Helper functions for cleaning and creating regex patterns
 
 // cleanDeviceName cleans device name for use as entity key
@@ -523,10 +552,6 @@ func (g *VoiceIntentGenerator) cleanDeviceName(name string) string {
 	return clean
 }
 
-// cleanZoneName cleans zone name for use as entity key
-func (g *VoiceIntentGenerator) cleanZoneName(name string) string {
-	return g.cleanDeviceName(name) // Same logic
-}
 
 // createDeviceRegex creates regex pattern for device name matching
 func (g *VoiceIntentGenerator) createDeviceRegex(deviceName string) string {
@@ -541,13 +566,6 @@ func (g *VoiceIntentGenerator) createDeviceRegex(deviceName string) string {
 	return flexible
 }
 
-// createZoneRegex creates regex pattern for zone name matching
-func (g *VoiceIntentGenerator) createZoneRegex(zoneName string) string {
-	// Similar to device regex but for zone names
-	escaped := regexp.QuoteMeta(strings.ToLower(zoneName))
-	flexible := strings.ReplaceAll(escaped, `\ `, `\\s*`)
-	return flexible
-}
 
 // saveIntents saves the intent data to JSON file
 func (g *VoiceIntentGenerator) saveIntents(intents *VoiceIntentData) error {

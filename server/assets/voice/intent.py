@@ -1,246 +1,253 @@
-import re
-import os
 import json
-from dataclasses import dataclass
-from typing import List, Optional, Dict
+import os
+import sys
+from typing import List, Dict, Optional, Any
 
-@dataclass
-class Command:
-    intent: str
-    entities: Dict[str, str]
-    original_text: str
-    real_device_names: List[str] = None  # Real device names (IEEE addresses)
-    device_properties: Dict[str, List[str]] = None  # Properties for each device
-    valid_command: bool = True  # Whether command is valid for target devices
-
-# TEMPORARY DUMMY DATA FOR TESTING 
-
-class IntentEntityMatcher:
+class VoiceCommandProcessor:
     def __init__(self):
-        # Try to load from generated intents.json, fall back to defaults
+        """Initialize the voice command processor with intents data"""
         self.load_intents()
-
+    
     def load_intents(self):
-        """Load intents from JSON file or use defaults"""
+        """Load the generated intents.json file"""
         script_dir = os.path.dirname(os.path.abspath(__file__))
         intents_file = os.path.join(script_dir, "intents.json")
         
-        if os.path.exists(intents_file):
-            try:
-                print(f"Loading dynamic intents from: {intents_file}")
-                with open(intents_file, 'r') as f:
-                    data = json.load(f)
-                
-                self.intent_patterns = data.get('intent_patterns', {})
-                self.entity_patterns = data.get('entity_patterns', {})
-                self.command_templates = data.get('command_templates', [])
-                
-                # Load new format fields
-                self.device_mappings = data.get('device_mappings', {})
-                self.zone_mappings = data.get('zone_mappings', {})
-                self.device_properties = data.get('device_properties', {})
-                
-                print(f"Loaded {len(self.intent_patterns)} intent patterns")
-                print(f"Loaded {len(self.entity_patterns)} entity categories")
-                print(f"Loaded {len(self.command_templates)} command templates")
-                print(f"Loaded {len(self.device_mappings)} device mappings")
-                print(f"Loaded {len(self.zone_mappings)} zone mappings")
-                print(f"Loaded {len(self.device_properties)} device properties")
-                return
-                
-            except Exception as e:
-                print(f"Error: Failed to load intents.json: {e}")
-                raise RuntimeError(f"Cannot load voice intents: {e}")
-        else:
-            print(f"Error: intents.json not found at {intents_file}")
-            raise RuntimeError("Voice intents file not found. Please run the server to generate intents.json")
+        if not os.path.exists(intents_file):
+            raise RuntimeError(f"intents.json not found at {intents_file}. Please run the server to generate it.")
         
-        # No fallback - intents.json must be available
+        with open(intents_file, 'r') as f:
+            data = json.load(f)
+        
+        self.devices = data.get('devices', [])
+        self.zones = data.get('zones', {})
+        
+        # Build lookup tables for faster access
+        self.devices_by_name = {}
+        self.devices_by_category = {}
+        self.devices_by_zone = {}
+        
+        for device in self.devices:
+            # Index by custom name and friendly name
+            if device.get('custom_name'):
+                name_lower = device['custom_name'].lower()
+                self.devices_by_name[name_lower] = device
+            
+            # Also index by friendly name if it's not an IEEE address
+            if device.get('friendly_name') and not device['friendly_name'].startswith('0x'):
+                name_lower = device['friendly_name'].lower()
+                self.devices_by_name[name_lower] = device
+            
+            # Index by categories
+            for category in device.get('categories', []):
+                category_lower = category.lower()
+                if category_lower not in self.devices_by_category:
+                    self.devices_by_category[category_lower] = []
+                self.devices_by_category[category_lower].append(device)
+            
+            # Index by zones
+            for zone in device.get('zones', []):
+                if zone:  # Skip empty zones
+                    zone_lower = zone.lower()
+                    if zone_lower not in self.devices_by_zone:
+                        self.devices_by_zone[zone_lower] = []
+                    self.devices_by_zone[zone_lower].append(device)
     
-    def preprocess_text(self, text):
-        """Clean the input text"""
-        # Remove filler words
-        filler_words = ['hey', 'so', 'can', 'you', 'may', 'be', 'uhhh', 'umm', 'uh', 'please']
-        for word in filler_words:
-            text = re.sub(rf'\b{word}\b', '', text, flags=re.IGNORECASE)
+    def normalize_text(self, text: str) -> str:
+        """Normalize input text for matching"""
+        # Convert to lowercase and strip extra spaces
+        text = ' '.join(text.lower().split())
         
-        # Fix common transcription errors
-        text = re.sub(r'rooom+', 'room', text, flags=re.IGNORECASE)
-        text = re.sub(r'liiight+', 'light', text, flags=re.IGNORECASE)
+        # Remove common filler words that don't affect meaning
+        filler_words = ['the', 'please', 'can', 'you', 'could', 'would']
+        words = text.split()
+        words = [w for w in words if w not in filler_words]
         
-        # Clean spacing
-        text = re.sub(r'\s+', ' ', text).strip().lower()
-        return text
+        return ' '.join(words)
     
-    def extract_intent(self, text):
-        """Extract the intent from the text"""
-        for intent, patterns in self.intent_patterns.items():
-            for pattern in patterns:
-                if re.search(pattern, text, re.IGNORECASE):
-                    return intent
+    def find_devices(self, text: str) -> List[Dict]:
+        """
+        Find devices mentioned in the text.
+        Priority: device name > category > zone
+        """
+        text_lower = text.lower()
+        found_devices = []
+        
+        # 1. Try to match specific device names
+        for name, device in self.devices_by_name.items():
+            if name in text_lower:
+                found_devices.append(device)
+                # Remove matched device name from text to avoid double matching
+                text_lower = text_lower.replace(name, '')
+        
+        if found_devices:
+            return found_devices
+        
+        # 2. Try to match device categories
+        for category, devices in self.devices_by_category.items():
+            if category in text_lower:
+                found_devices.extend(devices)
+        
+        if found_devices:
+            return found_devices
+        
+        # 3. Try to match zones
+        for zone, devices in self.devices_by_zone.items():
+            if zone in text_lower:
+                found_devices.extend(devices)
+        
+        if found_devices:
+            return found_devices
+        
+        # 4. If still no devices found, check if it's a general command
+        # (e.g., "turn off" without specifying what)
+        # In this case, return all controllable devices of common types
+        general_commands = ['turn on', 'turn off', 'switch on', 'switch off', 'toggle']
+        for cmd in general_commands:
+            if cmd in text_lower:
+                # Return all lights and switches
+                for category in ['light', 'switch', 'lamp', 'bulb', 'plug', 'outlet']:
+                    if category in self.devices_by_category:
+                        found_devices.extend(self.devices_by_category[category])
+                break
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_devices = []
+        for device in found_devices:
+            if device['ieee_address'] not in seen:
+                seen.add(device['ieee_address'])
+                unique_devices.append(device)
+        
+        return unique_devices
+    
+    def find_command_and_value(self, text: str, device: Dict) -> Optional[Dict]:
+        """
+        Find matching command and its target value for a device.
+        Returns: {property: str, value: Any} or None
+        """
+        text_lower = text.lower()
+        
+        # Check each property's commands
+        for prop in device.get('properties', []):
+            if not prop.get('is_writable', False):
+                continue
+            
+            commands = prop.get('commands', {})
+            if not commands:
+                continue
+            
+            # Check if any command matches the text
+            for command_phrase, target_value in commands.items():
+                # Simple substring matching
+                if command_phrase in text_lower:
+                    return {
+                        'property': prop['name'],
+                        'value': target_value,
+                        'command': command_phrase
+                    }
+        
+        # Try to match property names directly (e.g., "brightness to 50")
+        for prop in device.get('properties', []):
+            if not prop.get('is_writable', False):
+                continue
+            
+            prop_name = prop['name'].lower()
+            if prop_name in text_lower:
+                # Try to extract value if it's a set command
+                if 'to' in text_lower:
+                    # Extract number after "to"
+                    parts = text_lower.split('to')
+                    if len(parts) > 1:
+                        value_part = parts[-1].strip()
+                        # Try to parse as number
+                        try:
+                            if prop['type'] == 'numeric':
+                                value = float(value_part.replace('%', ''))
+                                # Handle percentage for properties with min/max
+                                if '%' in value_part and 'min_value' in prop and 'max_value' in prop:
+                                    min_val = prop['min_value']
+                                    max_val = prop['max_value']
+                                    value = min_val + (max_val - min_val) * (value / 100)
+                                return {
+                                    'property': prop_name,
+                                    'value': value,
+                                    'command': f"set {prop_name} to {value}"
+                                }
+                        except ValueError:
+                            pass
+        
         return None
     
-    def extract_entities(self, text):
-        """Extract entities from the text"""
-        entities = {}
+    def process_command(self, text: str) -> Dict:
+        """
+        Main processing function.
+        Returns the structured command data.
+        """
+        normalized_text = self.normalize_text(text)
         
-        for entity_type, entity_values in self.entity_patterns.items():
-            for entity_value, pattern in entity_values.items():
-                match = re.search(pattern, text, re.IGNORECASE)
-                if match:
-                    if entity_type == 'intensity' and match.groups():
-                        # Extract the numeric value for intensity
-                        for group in match.groups():
-                            if group:
-                                entities[entity_type] = f"{group}%"
-                                break
-                    else:
-                        entities[entity_type] = entity_value
-                    break
+        # Find target devices
+        devices = self.find_devices(normalized_text)
         
-        return entities
-    
-    def get_real_device_name(self, friendly_name):
-        """Get the real device name (IEEE address) from friendly name"""
-        return self.device_mappings.get(friendly_name, friendly_name)
-    
-    def get_device_properties(self, device_name):
-        """Get the properties available for a device"""
-        return self.device_properties.get(device_name, [])
-    
-    def get_devices_in_zone(self, zone_name):
-        """Get all devices in a specific zone"""
-        return self.zone_mappings.get(zone_name, [])
-    
-    def validate_command_for_device(self, intent, device_name):
-        """Check if a command is valid for a device based on its properties"""
-        properties = self.get_device_properties(device_name)
+        if not devices:
+            return {
+                'success': False,
+                'error': 'No devices found',
+                'input': text,
+                'devices': []
+            }
         
-        # Map intents to required properties
-        property_requirements = {
-            'switch_on': ['state'],
-            'switch_off': ['state'], 
-            'dim': ['brightness'],
-            'brighten': ['brightness'],
-            'set_brightness': ['brightness'],
-            'set_color': ['color', 'color_temp']
+        # For each device, find the command and value
+        device_commands = []
+        
+        for device in devices:
+            command_data = self.find_command_and_value(normalized_text, device)
+            
+            if command_data:
+                device_commands.append({
+                    'ieee_address': device['ieee_address'],
+                    'friendly_name': device.get('friendly_name', ''),
+                    'custom_name': device.get('custom_name', ''),
+                    'property': command_data['property'],
+                    'value': command_data['value'],
+                    'command': command_data.get('command', '')
+                })
+        
+        if not device_commands:
+            return {
+                'success': False,
+                'error': 'No valid commands found for devices',
+                'input': text,
+                'devices': [d['ieee_address'] for d in devices]
+            }
+        
+        return {
+            'success': True,
+            'input': text,
+            'normalized': normalized_text,
+            'commands': device_commands
         }
-        
-        required_props = property_requirements.get(intent, [])
-        if not required_props:
-            return True  # No specific requirements
-            
-        # Check if device has any of the required properties
-        return any(prop in properties for prop in required_props)
-    
-    def match_to_template(self, intent, entities):
-        """Match the intent and entities to a command template"""
-        if not intent:
-            return None
-            
-        # Find the best matching template
-        for template in self.command_templates:
-            if intent.replace('_', ' ') in template:
-                # Check if template requires entities that we have
-                if '{location}' in template and 'location' in entities:
-                    location = entities['location'].replace('_', ' ')
-                    return template.replace('{location}', location)
-                elif '{intensity}' in template and 'intensity' in entities:
-                    return template.replace('{intensity}', entities['intensity'])
-                elif '{' not in template:
-                    # Simple template without placeholders
-                    return template
-        
-        # Fallback: construct basic command
-        base_command = intent.replace('_', ' ')
-        if 'device' in entities:
-            device = entities['device'].replace('_', ' ')
-            base_command += f" {device}"
-        if 'location' in entities:
-            location = entities['location'].replace('_', ' ')
-            base_command += f" in {location}"
-            
-        return base_command
-    
-    def find_best_match(self, input_text):
-        """Find the best matching command"""
-        processed_text = self.preprocess_text(input_text)
-        
-        intent = self.extract_intent(processed_text)
-        entities = self.extract_entities(processed_text)
-        
-        if intent:
-            matched_command = self.match_to_template(intent, entities)
-            
-            # Resolve device names and validate command
-            real_device_names = []
-            device_properties = {}
-            valid_command = True
-            
-            # Handle device entities
-            if 'device' in entities:
-                device_name = entities['device']
-                real_name = self.get_real_device_name(device_name)
-                real_device_names.append(real_name)
-                device_properties[real_name] = self.get_device_properties(device_name)
-                valid_command = self.validate_command_for_device(intent, device_name)
-            
-            # Handle location entities (get all devices in zone)
-            if 'location' in entities:
-                zone_name = entities['location']
-                zone_devices = self.get_devices_in_zone(zone_name)
-                for device in zone_devices:
-                    real_name = self.get_real_device_name(device)
-                    real_device_names.append(real_name)
-                    device_properties[real_name] = self.get_device_properties(device)
-                    if not self.validate_command_for_device(intent, device):
-                        valid_command = False
-            
-            return Command(
-                intent=intent,
-                entities=entities,
-                original_text=matched_command or f"{intent} (unmatched)",
-                real_device_names=real_device_names,
-                device_properties=device_properties,
-                valid_command=valid_command
-            )
-        
-        return None
 
 def main():
-    import sys
-    import json
-    
+    """Main entry point for command line usage"""
     if len(sys.argv) != 2:
-        print("Usage: python intent.py <text>", file=sys.stderr)
+        print("Usage: python intent.py \"<voice command>\"", file=sys.stderr)
         sys.exit(1)
     
     input_text = sys.argv[1]
-    matcher = IntentEntityMatcher()
-    result = matcher.find_best_match(input_text)
     
-    if result:
-        output = {
-            "intent": result.intent,
-            "entities": result.entities,
-            "command": result.original_text,
-            "input": input_text,
-            "real_device_names": result.real_device_names,
-            "device_properties": result.device_properties,
-            "valid_command": result.valid_command
+    try:
+        processor = VoiceCommandProcessor()
+        result = processor.process_command(input_text)
+        print(json.dumps(result, indent=2))
+    except Exception as e:
+        error_result = {
+            'success': False,
+            'error': str(e),
+            'input': input_text
         }
-    else:
-        output = {
-            "intent": None,
-            "entities": {},
-            "command": None,
-            "input": input_text,
-            "real_device_names": [],
-            "device_properties": {},
-            "valid_command": False
-        }
-    
-    print(json.dumps(output, indent=2))
+        print(json.dumps(error_result, indent=2))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

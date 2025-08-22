@@ -42,11 +42,22 @@ type VoiceStatus struct {
     Timestamp   time.Time `json:"timestamp"`
 }
 
+type DeviceCommand struct {
+    IEEEAddress  string      `json:"ieee_address"`
+    FriendlyName string      `json:"friendly_name"`
+    CustomName   string      `json:"custom_name"`
+    Property     string      `json:"property"`
+    Value        interface{} `json:"value"`
+    Command      string      `json:"command"`
+}
+
 type IntentResult struct {
-    Intent   string            `json:"intent"`
-    Entities map[string]string `json:"entities"`
-    Command  string            `json:"command"`
-    Input    string            `json:"input"`
+    Success    bool            `json:"success"`
+    Input      string          `json:"input"`
+    Normalized string          `json:"normalized,omitempty"`
+    Commands   []DeviceCommand `json:"commands,omitempty"`
+    Error      string          `json:"error,omitempty"`
+    Devices    []string        `json:"devices,omitempty"` // For failed cases
 }
 
 // VoiceHistoryEntry represents a voice command history entry

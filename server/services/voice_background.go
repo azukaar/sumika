@@ -384,6 +384,11 @@ func (vr *VoiceRunner) run() {
         vr.mutex.Lock()
         vr.running = false
         vr.mutex.Unlock()
+        
+        // Recover from any panic to prevent crashing
+        if r := recover(); r != nil {
+            log.Printf("⚠️  Voice recognition panicked: %v", r)
+        }
     }()
 
     log.Printf("🚀 OpenWake Voice Assistant")
@@ -409,13 +414,23 @@ func (vr *VoiceRunner) run() {
     outPath := buildPath("audio.wav")
     f, err := os.Create(outPath)
     if err != nil {
-        log.Fatalf("create wav: %v", err)
+        log.Printf("⚠️  Failed to create audio file: %v", err)
+        log.Printf("⚠️  Voice recognition disabled - cannot create audio file")
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Errorf("failed to create audio file: %w", err))
+        }
+        return
     }
     defer f.Close()
 
     // Placeholder header (dataLen = 0); we update on exit
     if err := writeWavHeader(f, 0); err != nil {
-        log.Fatalf("header: %v", err)
+        log.Printf("⚠️  Failed to write WAV header: %v", err)
+        log.Printf("⚠️  Voice recognition disabled - cannot write audio header")
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Errorf("failed to write WAV header: %w", err))
+        }
+        return
     }
 
     var py *exec.Cmd
@@ -617,7 +632,12 @@ func (vr *VoiceRunner) run() {
         log.Printf("[malgo] %s", message)
     })
     if err != nil {
-        log.Fatalf("malgo.InitContext: %v", err)
+        log.Printf("⚠️  Failed to initialize audio context: %v", err)
+        log.Printf("⚠️  Voice recognition disabled - no audio device available")
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Errorf("audio initialization failed: %w", err))
+        }
+        return
     }
     defer func() {
         _ = ctx.Uninit()
@@ -668,12 +688,22 @@ func (vr *VoiceRunner) run() {
 
     device, err := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
     if err != nil {
-        log.Fatalf("InitDevice: %v", err)
+        log.Printf("⚠️  Failed to initialize audio device: %v", err)
+        log.Printf("⚠️  Voice recognition disabled - no audio device available")
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Errorf("audio device initialization failed: %w", err))
+        }
+        return
     }
     defer device.Uninit()
 
     if err := device.Start(); err != nil {
-        log.Fatalf("Start: %v", err)
+        log.Printf("⚠️  Failed to start audio device: %v", err)
+        log.Printf("⚠️  Voice recognition disabled - audio device start failed")
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Errorf("audio device start failed: %w", err))
+        }
+        return
     }
 
     PlayAudioFile("processing-soundreality.wav")

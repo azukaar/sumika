@@ -27,11 +27,15 @@ ARG TARGETARCH
 ARG TARGETOS
 
 # Install build dependencies including audio libraries for malgo
+# Add cross-compilation tools for ARM64
 RUN apt-get update && apt-get install -y \
     bash \
     git \
     gcc \
     libasound2-dev \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -44,8 +48,15 @@ RUN go mod download
 COPY server/ ./server/
 
 # Build the Go application with cross-compilation
-# CGO_ENABLED=1 for audio libraries like malgo
-RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./server
+# Set cross-compiler for ARM64 when needed
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        export CC=aarch64-linux-gnu-gcc && \
+        export CXX=aarch64-linux-gnu-g++ && \
+        export AR=aarch64-linux-gnu-ar && \
+        CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./server; \
+    else \
+        CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o sumika-server ./server; \
+    fi
 
 # Stage 3: Create the final image using Debian instead of Alpine
 FROM debian:bookworm-slim

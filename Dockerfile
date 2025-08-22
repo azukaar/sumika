@@ -95,6 +95,8 @@ RUN pip install --no-cache-dir \
 
 # Create a non-root user to run the app
 RUN useradd -m -u 1000 appuser
+RUN useradd -m -G audio appuser
+
 USER appuser
 
 WORKDIR /app

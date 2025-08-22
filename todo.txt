@@ -41,6 +41,8 @@
 - AI integration
 
 # Bugs 
+- min height issue on mobile for dashboard cards
+- System setting page broken on web
 - When using external broker, some messages are being duplicated.
 - Device page do not update on websocket message received
 

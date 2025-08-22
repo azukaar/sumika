@@ -1,6 +1,6 @@
 # dashboard
-- !Allow pining device property for dashboard manually rather than auto selecting
 - !Weather / clock supercards for dashboard
+- Allow pining device property for dashboard manually rather than auto selecting
 - Toggle supercard per zones
 - Add energy monitoring supercard for dashboard
 - Home tab for dashboard, with favourite devices and supercards
@@ -30,7 +30,6 @@
 - Add audit logging
 
 # features
-- !Voice control with intents
 - !Manage Zigbee2MQTT settings from Sumika
 - !Improve device adding pipeline by making the device appear in the list as they get interviewed without refresh
 - !device firmware updates
@@ -42,7 +41,6 @@
 - AI integration
 
 # Bugs 
-- When receving an update, the dashboard moves back to the first tab
 - When using external broker, some messages are being duplicated.
 - Device page do not update on websocket message received
 

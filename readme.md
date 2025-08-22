@@ -24,8 +24,7 @@ Sumika transforms your smart home devices into an integrated, easy-to-use automa
 
 - **Device Management**: Discover, control, and organize all your devices
 - **Dashboard**: Automatic dashboard populated with your rooms and devices for a smooth experience
-- **Zone-Based Organization**: Group devices by rooms or areas for easier management
-- **Real-Time Control**: Instant device state updates via WebSocket connections
+- **Voice Control**: Natural language voice commands to control devices (fully local, with no setup needed)
 - **Automation Engine**: Create IFTTT-style automations and scene triggers
 - **Scene Management**: Lighting scenes for different moods and activities
 - **Cross-Platform**: Works on web browsers, Android, iOS, Windows, macOS, and Linux with native apps

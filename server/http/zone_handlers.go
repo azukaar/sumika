@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	
+	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/storage"
 	"github.com/azukaar/sumika/server/zigbee2mqtt"
 )
@@ -164,7 +165,7 @@ func API_GetStorageInfo(w http.ResponseWriter, r *http.Request) {
 	allZones := GetAllZones()
 	
 	info := map[string]interface{}{
-		"storage_file":             "./build-data/storage.json",
+		"storage_file":             config.GetDataPath("storage.json"),
 		"zones_count":              len(allZones),
 		"zones":                   allZones,
 	}

@@ -99,15 +99,17 @@ type WebSocketConfig struct {
 
 // ZigbeeConfig holds Zigbee/MQTT configuration
 type ZigbeeConfig struct {
-	Enabled       bool   `json:"enabled"`
-	MQTTBroker    string `json:"mqtt_broker"`
-	MQTTPort      int    `json:"mqtt_port"`
-	MQTTUser      string `json:"mqtt_user"`
-	MQTTPassword  string `json:"mqtt_password"`
-	BaseTopic     string `json:"base_topic"`
-	DeviceTopic   string `json:"device_topic"`
-	StatusTopic   string `json:"status_topic"`
-	CommandTopic  string `json:"command_topic"`
+	Enabled           bool   `json:"enabled"`
+	MQTTBroker        string `json:"mqtt_broker"`
+	MQTTPort          int    `json:"mqtt_port"`
+	MQTTUser          string `json:"mqtt_user"`
+	MQTTPassword      string `json:"mqtt_password"`
+	BaseTopic         string `json:"base_topic"`
+	DeviceTopic       string `json:"device_topic"`
+	StatusTopic       string `json:"status_topic"`
+	CommandTopic      string `json:"command_topic"`
+	UseExternalBroker bool   `json:"use_external_broker"`
+	InternalMQTTPort  int    `json:"internal_mqtt_port"`
 }
 
 // VoiceConfig holds voice recognition configuration
@@ -138,11 +140,17 @@ var globalConfig *Config
 // Load loads configuration from file and environment variables
 func Load(configPath string) (*Config, error) {
 	config := getDefaultConfig()
+	fileLoaded := false
 
 	// Load from file if it exists
 	if configPath != "" {
 		if err := loadFromFile(config, configPath); err != nil {
 			return nil, fmt.Errorf("failed to load config from file: %w", err)
+		} else {
+			// Check if file actually existed and was loaded
+			if _, err := os.Stat(configPath); err == nil {
+				fileLoaded = true
+			}
 		}
 	}
 
@@ -152,6 +160,13 @@ func Load(configPath string) (*Config, error) {
 	// Validate configuration
 	if err := validateConfig(config); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Save default configuration to file if no config file was found
+	if configPath != "" && !fileLoaded {
+		if err := SaveConfig(config, configPath); err != nil {
+			return nil, fmt.Errorf("failed to save default config to file: %w", err)
+		}
 	}
 
 	globalConfig = config
@@ -171,8 +186,8 @@ func GetConfig() *Config {
 func getDefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Host:           "localhost",
-			Port:           8080,
+			Host:           "0.0.0.0",
+			Port:           8081,
 			ReadTimeout:    15 * time.Second,
 			WriteTimeout:   15 * time.Second,
 			IdleTimeout:    60 * time.Second,
@@ -222,15 +237,17 @@ func getDefaultConfig() *Config {
 			MaxConnections:  100,
 		},
 		Zigbee: ZigbeeConfig{
-			Enabled:      true,
-			MQTTBroker:   "localhost",
-			MQTTPort:     1883,
-			MQTTUser:     "",
-			MQTTPassword: "",
-			BaseTopic:    "zigbee2mqtt",
-			DeviceTopic:  "zigbee2mqtt/devices",
-			StatusTopic:  "zigbee2mqtt/bridge/state",
-			CommandTopic: "zigbee2mqtt/bridge/request",
+			Enabled:           true,
+			MQTTBroker:        "localhost",
+			MQTTPort:          1883,
+			MQTTUser:          "",
+			MQTTPassword:      "",
+			BaseTopic:         "zigbee2mqtt",
+			DeviceTopic:       "zigbee2mqtt/devices",
+			StatusTopic:       "zigbee2mqtt/bridge/state",
+			CommandTopic:      "zigbee2mqtt/bridge/request",
+			UseExternalBroker: false,
+			InternalMQTTPort:  1882,
 		},
 		Voice: VoiceConfig{
 			Enabled:       true,
@@ -315,6 +332,14 @@ func loadFromEnvironment(config *Config) {
 	}
 	if password := os.Getenv("SUMIKA_MQTT_PASSWORD"); password != "" {
 		config.Zigbee.MQTTPassword = password
+	}
+	if useExternal := os.Getenv("SUMIKA_USE_EXTERNAL_MQTT"); useExternal != "" {
+		config.Zigbee.UseExternalBroker = useExternal == "true"
+	}
+	if internalPort := os.Getenv("SUMIKA_INTERNAL_MQTT_PORT"); internalPort != "" {
+		if p, err := strconv.Atoi(internalPort); err == nil {
+			config.Zigbee.InternalMQTTPort = p
+		}
 	}
 
 	// Voice configuration
@@ -432,4 +457,10 @@ func IsDevelopment() bool {
 // IsProduction returns true if running in production mode
 func IsProduction() bool {
 	return !IsDevelopment()
+}
+
+// GetConfigFilePath returns the default path for the config file
+func GetConfigFilePath() string {
+	// Use default data directory since we can't rely on loaded config
+	return filepath.Join("./build-data", "sumika.json")
 }

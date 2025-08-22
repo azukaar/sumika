@@ -59,6 +59,14 @@ func API_UpdateVoiceConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Also save the configuration to file
+	globalConfig := config.GetConfig()
+	globalConfig.Voice = newConfig
+	if err := config.SaveConfig(globalConfig, config.GetConfigFilePath()); err != nil {
+		WriteInternalError(w, "Failed to save configuration to file: "+err.Error())
+		return
+	}
+
 	WriteJSON(w, map[string]string{
 		"status": "updated",
 	})

@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/azukaar/sumika/server/MQTT"
+	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/zigbee2mqtt"
 	"github.com/azukaar/sumika/server/realtime"
 	"github.com/azukaar/sumika/server/services"
@@ -18,6 +19,16 @@ import (
 
 func main() {
 	fmt.Println("Starting Sumika API Server...")
+	
+	// Load configuration from file and environment
+	cfg, err := config.Load(config.GetConfigFilePath())
+	if err != nil {
+		fmt.Printf("Warning: Failed to load configuration: %v\n", err)
+		fmt.Println("Using default configuration...")
+		cfg = config.GetConfig()
+	} else {
+		fmt.Println("Configuration loaded successfully")
+	}
 	
 	// Initialize storage system
 	if err := storage.Initialize(); err != nil {
@@ -131,6 +142,11 @@ func main() {
 		// WebSocket endpoint for real-time updates
 		r.HandleFunc("/ws", realtime.HandleWebSocket)
 
+		// Config management endpoints
+		r.HandleFunc("/api/config", httpHandlers.API_GetConfig).Methods("GET")
+		r.HandleFunc("/api/config", httpHandlers.API_UpdateConfig).Methods("PUT")
+		r.HandleFunc("/api/restart", httpHandlers.API_RestartServer).Methods("POST")
+		
 		// Health check endpoint
 		r.HandleFunc("/healthcheck", httpHandlers.API_HealthCheck).Methods("GET")
 
@@ -165,7 +181,21 @@ func main() {
 		}
     
 		http.Handle("/", r)
-		http.ListenAndServe(":8081", nil)
+		
+		address := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+		fmt.Printf("Server starting on %s\n", address)
+		
+		server := &http.Server{
+			Addr:           address,
+			ReadTimeout:    cfg.Server.ReadTimeout,
+			WriteTimeout:   cfg.Server.WriteTimeout,
+			IdleTimeout:    cfg.Server.IdleTimeout,
+			MaxHeaderBytes: cfg.Server.MaxHeaderBytes,
+		}
+		
+		if err := server.ListenAndServe(); err != nil {
+			fmt.Printf("Server failed to start: %v\n", err)
+		}
 	})();
 
 	MQTT.Init(func() {

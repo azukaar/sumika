@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 
 class VoiceCommandProcessor:
     def __init__(self):
@@ -59,7 +59,7 @@ class VoiceCommandProcessor:
         text = ' '.join(text.lower().split())
         
         # Remove common filler words that don't affect meaning
-        filler_words = ['the', 'please', 'can', 'you', 'could', 'would']
+        filler_words = ['the', 'please', 'can', 'you', 'could', 'would', 'all']
         words = text.split()
         words = [w for w in words if w not in filler_words]
         
@@ -67,59 +67,115 @@ class VoiceCommandProcessor:
     
     def find_devices(self, text: str) -> List[Dict]:
         """
-        Find devices mentioned in the text.
-        Priority: device name > category > zone
+        Find devices using step-by-step filtering pipeline.
+        Priority: Zone > Device Name > Category
         """
         text_lower = text.lower()
-        found_devices = []
+        devices = self.devices.copy()  # Start with all devices
         
-        # 1. Try to match specific device names
-        for name, device in self.devices_by_name.items():
-            if name in text_lower:
-                found_devices.append(device)
-                # Remove matched device name from text to avoid double matching
-                text_lower = text_lower.replace(name, '')
+        # Step 1: Zone Filtering First
+        devices, text_lower = self._filter_by_zones(devices, text_lower)
         
-        if found_devices:
-            return found_devices
+        # Step 2: Device Name Filtering Second  
+        devices, text_lower = self._filter_by_device_names(devices, text_lower)
         
-        # 2. Try to match device categories
-        for category, devices in self.devices_by_category.items():
-            if category in text_lower:
-                found_devices.extend(devices)
+        # Step 3: Category Filtering Third
+        devices, text_lower = self._filter_by_categories(devices, text_lower)
         
-        if found_devices:
-            return found_devices
+        # Step 4: If no devices found and it's a general command, return controllable devices
+        if not devices:
+            devices = self._handle_general_commands(text_lower)
         
-        # 3. Try to match zones
-        for zone, devices in self.devices_by_zone.items():
-            if zone in text_lower:
-                found_devices.extend(devices)
+        return devices
+    
+    def _filter_by_zones(self, devices: List[Dict], text: str) -> Tuple[List[Dict], str]:
+        """Filter devices by zone and remove zone text"""
+        # Check for zone matches
+        for zone_name, zone_devices in self.devices_by_zone.items():
+            # Handle both "living room" and "living_room" formats
+            zone_patterns = [zone_name, zone_name.replace('_', ' ')]
+            
+            for pattern in zone_patterns:
+                if pattern in text:
+                    # Filter devices to only those in this zone
+                    zone_device_ids = {d['ieee_address'] for d in zone_devices}
+                    filtered_devices = [d for d in devices if d['ieee_address'] in zone_device_ids]
+                    
+                    # Remove zone text
+                    text = text.replace(pattern, '').strip()
+                    text = ' '.join(text.split())  # Clean up extra spaces
+                    
+                    return filtered_devices, text
         
-        if found_devices:
-            return found_devices
+        return devices, text
+    
+    def _filter_by_device_names(self, devices: List[Dict], text: str) -> Tuple[List[Dict], str]:
+        """Filter devices by specific device name and remove device name text"""
+        # Check for specific device name matches within current device set
+        for device in devices:
+            device_names = []
+            
+            # Add custom name if exists
+            if device.get('custom_name'):
+                device_names.append(device['custom_name'].lower())
+            
+            # Add friendly name if exists and not IEEE address
+            if device.get('friendly_name') and not device['friendly_name'].startswith('0x'):
+                device_names.append(device['friendly_name'].lower())
+            
+            # Check if any device name matches
+            for name in device_names:
+                if name in text:
+                    # Remove device name text
+                    text = text.replace(name, '').strip()
+                    text = ' '.join(text.split())  # Clean up extra spaces
+                    
+                    # Return only this specific device
+                    return [device], text
         
-        # 4. If still no devices found, check if it's a general command
-        # (e.g., "turn off" without specifying what)
-        # In this case, return all controllable devices of common types
+        return devices, text
+    
+    def _filter_by_categories(self, devices: List[Dict], text: str) -> Tuple[List[Dict], str]:
+        """Filter devices by category and remove category text"""
+        # Check for category matches
+        for category_name, category_devices in self.devices_by_category.items():
+            if category_name in text:
+                # Filter current devices to only those in this category
+                category_device_ids = {d['ieee_address'] for d in category_devices}
+                filtered_devices = [d for d in devices if d['ieee_address'] in category_device_ids]
+                
+                if filtered_devices:  # Only filter if we have matches
+                    # Remove category text
+                    text = text.replace(category_name, '').strip()
+                    text = ' '.join(text.split())  # Clean up extra spaces
+                    
+                    return filtered_devices, text
+        
+        return devices, text
+    
+    def _handle_general_commands(self, text: str) -> List[Dict]:
+        """Handle general commands when no specific devices found"""
         general_commands = ['turn on', 'turn off', 'switch on', 'switch off', 'toggle']
+        
         for cmd in general_commands:
-            if cmd in text_lower:
-                # Return all lights and switches
+            if cmd in text:
+                # Return all controllable devices (lights, switches, plugs)
+                controllable_devices = []
                 for category in ['light', 'switch', 'lamp', 'bulb', 'plug', 'outlet']:
                     if category in self.devices_by_category:
-                        found_devices.extend(self.devices_by_category[category])
-                break
+                        controllable_devices.extend(self.devices_by_category[category])
+                
+                # Remove duplicates
+                seen = set()
+                unique_devices = []
+                for device in controllable_devices:
+                    if device['ieee_address'] not in seen:
+                        seen.add(device['ieee_address'])
+                        unique_devices.append(device)
+                
+                return unique_devices
         
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_devices = []
-        for device in found_devices:
-            if device['ieee_address'] not in seen:
-                seen.add(device['ieee_address'])
-                unique_devices.append(device)
-        
-        return unique_devices
+        return []
     
     def find_command_and_value(self, text: str, device: Dict) -> Optional[Dict]:
         """

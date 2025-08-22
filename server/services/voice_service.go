@@ -10,6 +10,7 @@ import (
 	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/realtime"
 	"github.com/azukaar/sumika/server/types"
+	"github.com/gen2brain/malgo"
 )
 
 // VoiceService manages voice recognition functionality
@@ -216,20 +217,11 @@ func (vs *VoiceService) GetOutputDevices() ([]types.AudioDevice, error) {
 
 // getAudioDevices gets input or output audio devices
 func (vs *VoiceService) getAudioDevices(input bool) ([]types.AudioDevice, error) {
-	// Use the ListDevices functionality from voice package
-	// This would need to be adapted from the existing ListDevices()
-	
-	// For now, return a placeholder implementation
-	// In a real implementation, you'd call the malgo device enumeration
-	devices := []types.AudioDevice{
-		{
-			ID:       "default",
-			Name:     "Default Audio Device",
-			IsDefault: true,
-		},
+	if input {
+		return getAudioInputDevices()
+	} else {
+		return getAudioOutputDevices()
 	}
-	
-	return devices, nil
 }
 
 // Callback handlers for voice events
@@ -405,4 +397,112 @@ func (vs *VoiceService) GetHistory(limit int) []types.VoiceHistoryEntry {
 	result := make([]types.VoiceHistoryEntry, limit)
 	copy(result, vs.history[:limit])
 	return result
+}
+
+// getAudioInputDevices returns available audio input devices
+func getAudioInputDevices() ([]types.AudioDevice, error) {
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+		// Silent callback for device enumeration
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize audio context: %w", err)
+	}
+	defer func() {
+		_ = ctx.Uninit()
+		ctx.Free()
+	}()
+
+	devices, err := ctx.Devices(malgo.Capture)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate input devices: %w", err)
+	}
+
+	var audioDevices []types.AudioDevice
+	var defaultDeviceName string = "System Default"
+	
+	// Find the actual default device name
+	for _, device := range devices {
+		info, err := ctx.DeviceInfo(malgo.Capture, device.ID, malgo.Shared)
+		if err != nil {
+			log.Printf("Warning: Failed to get info for input device %s: %v", device.Name(), err)
+			continue
+		}
+		
+		if info.IsDefault == 1 {
+			defaultDeviceName = device.Name()
+		}
+	}
+	
+	// Add default device first with actual default device name
+	audioDevices = append(audioDevices, types.AudioDevice{
+		ID:        "default",
+		Name:      fmt.Sprintf("Default (%s)", defaultDeviceName),
+		IsDefault: true,
+	})
+
+	for _, device := range devices {
+		audioDevices = append(audioDevices, types.AudioDevice{
+			ID:        fmt.Sprintf("%v", device.ID),
+			Name:      device.Name(),
+			IsDefault: false,
+		})
+		
+		log.Printf("Found input device: %s", device.Name())
+	}
+
+	return audioDevices, nil
+}
+
+// getAudioOutputDevices returns available audio output devices
+func getAudioOutputDevices() ([]types.AudioDevice, error) {
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+		// Silent callback for device enumeration
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize audio context: %w", err)
+	}
+	defer func() {
+		_ = ctx.Uninit()
+		ctx.Free()
+	}()
+
+	devices, err := ctx.Devices(malgo.Playback)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate output devices: %w", err)
+	}
+
+	var audioDevices []types.AudioDevice
+	var defaultDeviceName string = "System Default"
+	
+	// Find the actual default device name
+	for _, device := range devices {
+		info, err := ctx.DeviceInfo(malgo.Playback, device.ID, malgo.Shared)
+		if err != nil {
+			log.Printf("Warning: Failed to get info for output device %s: %v", device.Name(), err)
+			continue
+		}
+		
+		if info.IsDefault == 1 {
+			defaultDeviceName = device.Name()
+		}
+	}
+	
+	// Add default device first with actual default device name
+	audioDevices = append(audioDevices, types.AudioDevice{
+		ID:        "default",
+		Name:      fmt.Sprintf("Default (%s)", defaultDeviceName),
+		IsDefault: true,
+	})
+
+	for _, device := range devices {
+		audioDevices = append(audioDevices, types.AudioDevice{
+			ID:        fmt.Sprintf("%v", device.ID),
+			Name:      device.Name(),
+			IsDefault: false,
+		})
+		
+		log.Printf("Found output device: %s", device.Name())
+	}
+
+	return audioDevices, nil
 }

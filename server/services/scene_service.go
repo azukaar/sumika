@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/storage"
 	"github.com/azukaar/sumika/server/types"
 	"github.com/azukaar/sumika/server/zigbee2mqtt"
@@ -21,7 +22,7 @@ type SceneService struct {
 
 func NewSceneService() *SceneService {
 	// Use existing scene repository  
-	repository := storage.NewJSONSceneRepository("./build-data/scenes_data.json", "./assets/scenes")
+	repository := storage.NewJSONSceneRepository(config.GetDataPath("scenes_data.json"), "./assets/scenes")
 	return &SceneService{
 		repository: repository,
 	}

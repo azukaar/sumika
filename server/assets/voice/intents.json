@@ -568,7 +568,7 @@
           "max_value": 255,
           "unit": "lqi",
           "commands": {},
-          "current_value": 141
+          "current_value": 135
         }
       ],
       "voice_patterns": [
@@ -855,7 +855,7 @@
           "max_value": 255,
           "unit": "lqi",
           "commands": {},
-          "current_value": 147
+          "current_value": 144
         }
       ],
       "voice_patterns": [
@@ -1429,7 +1429,7 @@
           "max_value": 255,
           "unit": "lqi",
           "commands": {},
-          "current_value": 144
+          "current_value": 138
         }
       ],
       "voice_patterns": [
@@ -1497,7 +1497,7 @@
           "is_writable": false,
           "unit": "W",
           "commands": {},
-          "current_value": 18
+          "current_value": 17
         },
         {
           "name": "voltage",
@@ -1507,7 +1507,7 @@
           "is_writable": false,
           "unit": "V",
           "commands": {},
-          "current_value": 234
+          "current_value": 236
         },
         {
           "name": "current",
@@ -1517,7 +1517,7 @@
           "is_writable": false,
           "unit": "A",
           "commands": {},
-          "current_value": 0.14
+          "current_value": 0.15
         },
         {
           "name": "energy",
@@ -1539,7 +1539,7 @@
           "max_value": 255,
           "unit": "lqi",
           "commands": {},
-          "current_value": 189
+          "current_value": 192
         }
       ],
       "voice_patterns": [
@@ -1588,21 +1588,21 @@
           "min_value": 0,
           "max_value": 254,
           "commands": {
-            "brighter": 250.8,
-            "decrease": 149.2,
-            "dimmer": 149.2,
+            "brighter": 254,
+            "decrease": 203.2,
+            "dimmer": 203.2,
             "full": 254,
-            "higher": 250.8,
+            "higher": 254,
             "highest": 254,
-            "increase": 250.8,
-            "lower": 149.2,
+            "increase": 254,
+            "lower": 203.2,
             "lowest": 0,
             "max": 254,
             "maximum": 254,
             "min": 0,
             "minimum": 0
           },
-          "current_value": 200
+          "current_value": 254
         },
         {
           "name": "color_temp",
@@ -1826,7 +1826,7 @@
           "max_value": 255,
           "unit": "lqi",
           "commands": {},
-          "current_value": 63
+          "current_value": 48
         }
       ],
       "voice_patterns": [

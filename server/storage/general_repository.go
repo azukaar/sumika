@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/types"
 )
 
@@ -21,8 +22,8 @@ var (
 
 // Initialize initializes the storage system
 func Initialize() error {
-	dataDir := "./build-data"
-	filePath = filepath.Join(dataDir, "storage.json")
+	cfg := config.GetConfig()
+	filePath = filepath.Join(cfg.Database.DataDirectory, "storage.json")
 	
 	data, err := loadData()
 	if err != nil {

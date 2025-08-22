@@ -5,6 +5,7 @@ import (
     "encoding/binary"
     "encoding/json"
     "errors"
+    "fmt"
     "io"
     "log"
     "os"
@@ -14,6 +15,7 @@ import (
     "time"
 
     malgo "github.com/gen2brain/malgo"
+    "github.com/azukaar/sumika/server/config"
     "github.com/azukaar/sumika/server/utils"
     "github.com/azukaar/sumika/server/types"
 )
@@ -44,6 +46,28 @@ type PythonEvent struct {
     AudioDuration  float64 `json:"audio_duration,omitempty"`
     ProcessingTime float64 `json:"processing_time,omitempty"`
     Timestamp      float64 `json:"timestamp"`
+}
+
+// findAudioDevice finds an audio device by ID string from the available devices
+func findAudioDevice(ctx *malgo.AllocatedContext, deviceIDStr string, deviceType malgo.DeviceType) (*malgo.DeviceInfo, error) {
+    if deviceIDStr == "default" || deviceIDStr == "" {
+        return nil, errors.New("default device")
+    }
+    
+    devices, err := ctx.Devices(deviceType)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Match device by ID string
+    for _, device := range devices {
+        deviceIDString := fmt.Sprintf("%v", device.ID)
+        if deviceIDString == deviceIDStr {
+            return &device, nil
+        }
+    }
+    
+    return nil, errors.New("device not found")
 }
 
 // getExecutableDir returns the directory of the current executable
@@ -127,11 +151,19 @@ func PlayWAVFile(filename string) error {
     }
     defer file.Close()
 
-    // Read WAV header to skip it
+    // Read WAV header to extract format information
     header := make([]byte, 44)
     if _, err := file.Read(header); err != nil {
         return err
     }
+
+    // Parse WAV header to get format information
+    // WAV header format: https://docs.fileformat.com/audio/wav/
+    numChannels := binary.LittleEndian.Uint16(header[22:24])
+    sampleRate := binary.LittleEndian.Uint32(header[24:28])
+    bitsPerSample := binary.LittleEndian.Uint16(header[34:36])
+    
+    log.Printf("🎵 WAV file format: %d Hz, %d channels, %d-bit", sampleRate, numChannels, bitsPerSample)
 
     // Read audio data
     audioData, err := io.ReadAll(file)
@@ -157,15 +189,42 @@ func PlayWAVFile(filename string) error {
 
     // Setup playback device config
     deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
-    deviceConfig.Playback.Format = malgo.FormatS16
-    deviceConfig.Playback.Channels = 1 // Assuming mono for audio files
-    deviceConfig.SampleRate = 16000    // Assuming same as capture
+    
+    // Get voice config and set specific output device if configured
+    cfg := config.GetConfig()
+    if cfg.Voice.OutputDevice != "default" && cfg.Voice.OutputDevice != "" {
+        log.Printf("Using configured output device: %s", cfg.Voice.OutputDevice)
+        if deviceInfo, err := findAudioDevice(ctx, cfg.Voice.OutputDevice, malgo.Playback); err == nil {
+            deviceConfig.Playback.DeviceID = deviceInfo.ID.Pointer()
+            log.Printf("✅ Found and configured output device: %s", deviceInfo.Name())
+        } else {
+            log.Printf("⚠️  Failed to find output device '%s', using default", cfg.Voice.OutputDevice, err)
+        }
+    }
+    
+    // Configure device based on WAV file format
+    deviceConfig.Playback.Channels = uint32(numChannels)
+    deviceConfig.SampleRate = sampleRate
+    
+    // Set format based on bits per sample
+    switch bitsPerSample {
+    case 16:
+        deviceConfig.Playback.Format = malgo.FormatS16
+    case 24:
+        deviceConfig.Playback.Format = malgo.FormatS24
+    case 32:
+        deviceConfig.Playback.Format = malgo.FormatS32
+    default:
+        log.Printf("⚠️  Unsupported bit depth %d, using S16", bitsPerSample)
+        deviceConfig.Playback.Format = malgo.FormatS16
+    }
 
     var playbackPos int
     finished := make(chan bool)
 
     onSendFrames := func(pOutputSample []byte, pInputSample []byte, frameCount uint32) {
-        bytesToCopy := int(frameCount) * 2 // 2 bytes per sample for S16
+        bytesPerSample := int(bitsPerSample / 8)
+        bytesToCopy := int(frameCount) * int(numChannels) * bytesPerSample
         if playbackPos+bytesToCopy > len(audioData) {
             bytesToCopy = len(audioData) - playbackPos
         }
@@ -480,7 +539,7 @@ func (vr *VoiceRunner) run() {
                     }
                 case "audio_debug":
                 case "silence_detected":
-                    PlayAudioFile("processing-rusu-gabriel.wav")
+                    PlayAudioFile("processing-soundreality.wav")
                     log.Printf("🔇 %s", event.Message)
                 case "max_buffer_reached":
                     log.Printf("📦 %s", event.Message)
@@ -570,6 +629,17 @@ func (vr *VoiceRunner) run() {
     deviceConfig.Capture.Channels = channels
     deviceConfig.SampleRate = sampleRate
     deviceConfig.Alsa.NoMMap = 1
+    
+    // Set specific input device if configured
+    if vr.config.InputDevice != "default" && vr.config.InputDevice != "" {
+        log.Printf("Using configured input device: %s", vr.config.InputDevice)
+        if deviceInfo, err := findAudioDevice(ctx, vr.config.InputDevice, malgo.Capture); err == nil {
+            deviceConfig.Capture.DeviceID = deviceInfo.ID.Pointer()
+            log.Printf("✅ Found and configured input device: %s", deviceInfo.Name())
+        } else {
+            log.Printf("⚠️  Failed to find input device '%s': %v", vr.config.InputDevice, err)
+        }
+    }
 
     onRecvFrames := func(_ []byte, pInputSample []byte, frameCount uint32) {
         if len(pInputSample) == 0 {
@@ -605,6 +675,9 @@ func (vr *VoiceRunner) run() {
     if err := device.Start(); err != nil {
         log.Fatalf("Start: %v", err)
     }
+
+    PlayAudioFile("processing-soundreality.wav")
+
     log.Printf("Capturing @ %d Hz, %d ch, %d-bit… Voice recognition active.", sampleRate, channels, bitsPerSample)
 
     // Wait for stop signal

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -21,9 +22,18 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
   final _urlController = TextEditingController();
   bool _isLoading = false;
   bool _isTesting = false;
+  bool _isRestarting = false;
+  bool _isLoadingVoice = false;
   String? _errorMessage;
   String? _successMessage;
   String? _currentUrl;
+  
+  // Voice configuration
+  Map<String, dynamic>? _voiceConfig;
+  List<dynamic>? _inputDevices;
+  List<dynamic>? _outputDevices;
+  List<dynamic>? _voiceHistory;
+  bool _hasVoiceChanges = false;
 
   @override
   void initState() {
@@ -43,6 +53,11 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
       _currentUrl = url;
       _urlController.text = url ?? '';
     });
+    
+    // Load voice configuration if connected
+    if (url != null && url.isNotEmpty) {
+      _loadVoiceConfiguration();
+    }
   }
 
   void _clearGlobalState() {
@@ -198,6 +213,480 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
     }
   }
 
+  Future<void> _restartServer() async {
+    if (_currentUrl == null || _currentUrl!.isEmpty) {
+      setState(() {
+        _errorMessage = 'No server connected to restart';
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restart Server'),
+        content: Text('Are you sure you want to restart the Sumika server? This will temporarily disconnect all clients.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Restart'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isRestarting = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('${_currentUrl}/api/restart'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _successMessage = 'Server restart initiated successfully! Please wait a moment for the server to come back online.';
+        });
+      } else {
+        throw Exception('Server returned error ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to restart server: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isRestarting = false;
+      });
+    }
+  }
+
+  Future<void> _loadVoiceConfiguration() async {
+    if (_currentUrl == null || _currentUrl!.isEmpty) return;
+    
+    setState(() {
+      _isLoadingVoice = true;
+    });
+
+    try {
+      // Load voice config, devices, and history in parallel
+      final futures = await Future.wait([
+        http.get(Uri.parse('${_currentUrl}/api/voice/config')),
+        http.get(Uri.parse('${_currentUrl}/api/voice/devices')),
+        http.get(Uri.parse('${_currentUrl}/api/voice/history?limit=20')),
+      ]);
+
+      final configResponse = futures[0];
+      final devicesResponse = futures[1];
+      final historyResponse = futures[2];
+
+      if (configResponse.statusCode == 200) {
+        _voiceConfig = json.decode(configResponse.body);
+        _hasVoiceChanges = false;
+      }
+
+      if (devicesResponse.statusCode == 200) {
+        final devicesData = json.decode(devicesResponse.body);
+        _inputDevices = devicesData['input'] ?? [];
+        _outputDevices = devicesData['output'] ?? [];
+      }
+
+      if (historyResponse.statusCode == 200) {
+        final historyData = json.decode(historyResponse.body);
+        _voiceHistory = historyData['history'] ?? [];
+      }
+
+      setState(() {});
+    } catch (e) {
+      print('Failed to load voice configuration: $e');
+    } finally {
+      setState(() {
+        _isLoadingVoice = false;
+      });
+    }
+  }
+
+  void _toggleVoice(bool enabled) {
+    if (_voiceConfig == null) return;
+
+    setState(() {
+      _voiceConfig!['enabled'] = enabled;
+      _hasVoiceChanges = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+  }
+
+  void _updateVoiceDevice(String deviceType, String deviceId) {
+    if (_voiceConfig == null) return;
+
+    setState(() {
+      if (deviceType == 'input') {
+        _voiceConfig!['input_device'] = deviceId;
+      } else {
+        _voiceConfig!['output_device'] = deviceId;
+      }
+      _hasVoiceChanges = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+  }
+
+  Future<void> _saveVoiceConfig() async {
+    if (_currentUrl == null || _voiceConfig == null) return;
+
+    setState(() {
+      _isLoadingVoice = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('${_currentUrl}/api/voice/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(_voiceConfig),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _hasVoiceChanges = false;
+          _successMessage = 'Voice configuration saved successfully';
+          _errorMessage = null;
+        });
+      } else {
+        throw Exception('Server returned error ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to save voice configuration: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoadingVoice = false;
+      });
+    }
+  }
+
+
+  Widget _buildVoiceConfigSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Voice Recognition',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        if (_isLoadingVoice) ...[
+          Container(
+            padding: const EdgeInsets.all(32),
+            child: Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('Loading voice configuration...'),
+                ],
+              ),
+            ),
+          ),
+        ] else if (_voiceConfig != null) ...[
+          // Voice On/Off Toggle
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.mic_rounded,
+                  color: _voiceConfig!['enabled'] == true
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Voice Recognition',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        _voiceConfig!['enabled'] == true ? 'Active' : 'Disabled',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _voiceConfig!['enabled'] == true,
+                  onChanged: _toggleVoice,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Device Selection
+          if (_inputDevices != null && _outputDevices != null) ...[
+            // Input Device
+            _buildDeviceSelector(
+              'Microphone',
+              Icons.mic_rounded,
+              _inputDevices!,
+              _voiceConfig!['input_device'] ?? 'default',
+              'input',
+            ),
+            const SizedBox(height: 12),
+            
+            // Output Device
+            _buildDeviceSelector(
+              'Speaker',
+              Icons.volume_up_rounded,
+              _outputDevices!,
+              _voiceConfig!['output_device'] ?? 'default',
+              'output',
+            ),
+          ],
+
+          const SizedBox(height: 16),
+
+          // Voice History
+          if (_voiceHistory != null && _voiceHistory!.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.history_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Recent Voice Commands',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...(_voiceHistory!.take(5).map((entry) => _buildHistoryEntry(entry))),
+                  if (_voiceHistory!.length > 5) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'And ${_voiceHistory!.length - 5} more...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          // Save Voice Configuration Button
+          if (_hasVoiceChanges) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _isLoadingVoice ? null : _saveVoiceConfig,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _isLoadingVoice
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text('Saving...'),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.save_rounded),
+                        const SizedBox(width: 8),
+                        Text('Save Voice Settings'),
+                      ],
+                    ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDeviceSelector(String label, IconData icon, List<dynamic> devices, String currentDevice, String deviceType) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: currentDevice,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            items: devices.map<DropdownMenuItem<String>>((device) {
+              final deviceId = device['id']?.toString() ?? 'unknown';
+              final deviceName = device['name']?.toString() ?? 'Unknown Device';
+              final isDefault = device['is_default'] == true;
+              
+              return DropdownMenuItem<String>(
+                value: deviceId,
+                child: Text(
+                  isDefault ? '$deviceName (Default)' : deviceName,
+                  style: TextStyle(fontSize: 14),
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null && newValue != currentDevice) {
+                _updateVoiceDevice(deviceType, newValue);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryEntry(Map<String, dynamic> entry) {
+    final transcription = entry['transcription']?.toString() ?? '';
+    final success = entry['success'] == true;
+    final timestamp = entry['timestamp']?.toString() ?? '';
+    final command = entry['command']?.toString() ?? '';
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            success ? Icons.check_circle_rounded : Icons.error_rounded,
+            size: 16,
+            color: success ? Colors.green.shade600 : Colors.red.shade600,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transcription,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (command.isNotEmpty)
+                  Text(
+                    command,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,9 +720,12 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header section
@@ -359,8 +851,7 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
               ],
 
               // Settings Form
-              Expanded(
-                child: Form(
+              Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -441,6 +932,46 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
                       ),
 
                       const SizedBox(height: 16),
+
+                      // Restart Server Button (only show if connected)
+                      if (_currentUrl != null && _currentUrl!.isNotEmpty) ...[
+                        OutlinedButton(
+                          onPressed: _isRestarting ? null : _restartServer,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            foregroundColor: Colors.orange.shade700,
+                            side: BorderSide(color: Colors.orange.shade300),
+                          ),
+                          child: _isRestarting
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text('Restarting server...'),
+                                  ],
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.restart_alt_rounded),
+                                    const SizedBox(width: 8),
+                                    Text('Restart Server'),
+                                  ],
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Buttons Row
                       Row(
@@ -554,7 +1085,13 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
                         ),
                       ],
 
-                      const Spacer(),
+                      // Voice Configuration Section (only show if connected)
+                      if (_currentUrl != null && _currentUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        _buildVoiceConfigSection(),
+                      ],
+
+                      const SizedBox(height: 32),
 
                       // Info footer
                       Container(
@@ -585,9 +1122,10 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
                       ),
                     ],
                   ),
-                ),
               ),
             ],
+              ),
+            ),
           ),
         ),
       ),

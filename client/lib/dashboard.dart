@@ -335,8 +335,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Restart WebSocket connection on retry
+                      // Restart WebSocket connection and reload devices on retry
                       ref.read(webSocketServiceProvider).restartConnection();
+                      ref.read(devicesProvider.notifier).loadDevices();
                       _loadDashboardData();
                     },
                     style: ElevatedButton.styleFrom(

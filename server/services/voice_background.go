@@ -417,7 +417,7 @@ func (vr *VoiceRunner) run() {
         log.Printf("⚠️  Failed to create audio file: %v", err)
         log.Printf("⚠️  Voice recognition disabled - cannot create audio file")
         if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Errorf("failed to create audio file: %w", err))
+            vr.callbacks.OnError(fmt.Sprintf("Failed to create audio file: %v", err), 0.0)
         }
         return
     }
@@ -428,7 +428,7 @@ func (vr *VoiceRunner) run() {
         log.Printf("⚠️  Failed to write WAV header: %v", err)
         log.Printf("⚠️  Voice recognition disabled - cannot write audio header")
         if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Errorf("failed to write WAV header: %w", err))
+            vr.callbacks.OnError(fmt.Sprintf("Failed to write WAV header: %v", err), 0.0)
         }
         return
     }
@@ -635,7 +635,7 @@ func (vr *VoiceRunner) run() {
         log.Printf("⚠️  Failed to initialize audio context: %v", err)
         log.Printf("⚠️  Voice recognition disabled - no audio device available")
         if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Errorf("audio initialization failed: %w", err))
+            vr.callbacks.OnError(fmt.Sprintf("Audio initialization failed: %v", err), 0.0)
         }
         return
     }
@@ -691,7 +691,7 @@ func (vr *VoiceRunner) run() {
         log.Printf("⚠️  Failed to initialize audio device: %v", err)
         log.Printf("⚠️  Voice recognition disabled - no audio device available")
         if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Errorf("audio device initialization failed: %w", err))
+            vr.callbacks.OnError(fmt.Sprintf("Audio device initialization failed: %v", err), 0.0)
         }
         return
     }
@@ -701,7 +701,7 @@ func (vr *VoiceRunner) run() {
         log.Printf("⚠️  Failed to start audio device: %v", err)
         log.Printf("⚠️  Voice recognition disabled - audio device start failed")
         if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Errorf("audio device start failed: %w", err))
+            vr.callbacks.OnError(fmt.Sprintf("Audio device start failed: %v", err), 0.0)
         }
         return
     }

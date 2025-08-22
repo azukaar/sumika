@@ -1122,7 +1122,9 @@ def process_command(self, text: str) -> Dict:
 - Background voice processing worker
 - Integration with Python intent processor
 - Enhanced logging with device command details
-- Error handling and retry logic
+- Graceful audio device failure handling (non-fatal)
+- Supports running without audio devices (e.g., in Docker containers)
+- Error callbacks for voice service events
 
 ### Voice Intent Data Structure
 

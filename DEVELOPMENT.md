@@ -52,7 +52,9 @@
 - Clean separation of concerns with service/repository patterns
 - Structured error handling with typed errors
 - Configuration-driven behavior
-- Middleware-based architecture for cross-cutting concerns
+- Centralized HTTP routing with domain-specific handlers
+- Repository pattern for data persistence abstraction
+- Type-safe domain models in dedicated `/types` package
 
 **Frontend: Flutter with Riverpod State Management**
 - Reactive state management with consistent patterns
@@ -113,11 +115,12 @@
 
 ### Layered Architecture
 
-**1. HTTP Layer (`/server/manage/*_api.go`, `/server/zigbee2mqtt/API.go`)**
+**1. HTTP Layer (`/server/http/*_handlers.go`)**
 - Thin HTTP handlers focused on request/response transformation
 - Input validation and parameter extraction
 - Error handling and response formatting
 - No business logic - delegates to service layer
+- Centralized routing in `init.go`
 
 **2. Service Layer (`/server/services/*.go`)**
 - Contains all business logic and validation rules
@@ -372,36 +375,44 @@ mixin ErrorHandlingMixin<T extends StatefulWidget> on State<T> {
 ```
 server/
 ├── config/
-│   └── config.go                 # Centralized configuration management
+│   └── config.go                      # Centralized configuration management
 ├── errors/
-│   ├── types.go                  # Structured error types and factories
-│   ├── middleware.go             # Error handling middleware
-│   └── helpers.go                # Validation and parsing helpers
+│   ├── types.go                       # Structured error types and factories
+│   ├── middleware.go                  # Error handling middleware
+│   └── helpers.go                     # Validation and parsing helpers
 ├── http/
-│   ├── response.go               # HTTP response utilities
-│   └── params.go                 # URL parameter extraction
-├── manage/
-│   ├── zones_api.go              # Zone management endpoints
-│   ├── automations_api.go        # Automation CRUD operations
-│   ├── device_metadata_api.go    # Device metadata management
-│   └── scene_management_api.go   # Scene operations
+│   ├── init.go                        # HTTP server initialization and routing
+│   ├── health_handlers.go             # Health check endpoints
+│   ├── automation_handlers.go         # Automation management endpoints
+│   ├── device_handlers.go             # Device management endpoints
+│   ├── scene_handlers.go              # Scene management endpoints
+│   ├── voice_handlers.go              # Voice processing endpoints
+│   └── zone_handlers.go               # Zone management endpoints
 ├── services/
-│   ├── container.go              # Dependency injection container
-│   ├── zone_service.go           # Zone business logic
-│   ├── automation_service.go     # Automation business logic
-│   └── device_service.go         # Device metadata business logic
+│   ├── automation_service.go          # Automation business logic and orchestration
+│   ├── scene_service.go               # Scene management and execution
+│   ├── voice_service.go               # Voice recognition service management
+│   └── voice_background.go            # Voice processing background worker
 ├── storage/
-│   ├── interfaces.go             # Repository interfaces
-│   ├── json_datastore.go         # JSON file storage implementation
-│   └── types.go                  # Storage data types
-├── utils/
-│   ├── log.go                    # Basic logging infrastructure
-│   └── structured_log.go         # Structured logging with context
+│   ├── general_repository.go          # General-purpose storage operations
+│   ├── automation_repository.go       # Automation data access layer
+│   ├── scene_repository.go            # Scene data access layer
+│   ├── voice_intent_generator.go      # Voice intent data generation
+│   └── zigbee.go                      # Zigbee device data structures
+├── types/
+│   ├── automation_types.go            # Automation-specific data types
+│   ├── device_types.go                # Device data structures
+│   ├── scene_types.go                 # Scene management types
+│   ├── storage_types.go               # Storage abstraction types
+│   └── voice_types.go                 # Voice processing data structures
 ├── realtime/
-│   └── websocket.go              # WebSocket real-time communication
+│   └── websocket.go                   # WebSocket real-time communication
+├── assets/voice/
+│   ├── intent.py                      # Voice command processing engine
+│   └── intents.json                   # Generated voice intent data
 └── zigbee2mqtt/
-    ├── API.go                    # Zigbee device communication and deletion
-    └── index.go                  # Intelligent device merging and synchronization
+    ├── API.go                         # Zigbee device communication and deletion
+    └── index.go                       # Intelligent device merging and synchronization
 ```
 
 ### Frontend Structure
@@ -1031,6 +1042,171 @@ POST   /manage/zones/{zone}/devices    # Add device to zone
   "timestamp": "2023-12-07T10:30:00Z"
 }
 ```
+
+---
+
+## Voice Processing System
+
+### Voice Command Processing Pipeline
+
+**Complete Voice Recognition Flow:**
+```
+Audio Input → Wake Word Detection → Speech-to-Text → Intent Processing → Device Commands → MQTT Execution
+```
+
+**Core Components:**
+
+**1. Voice Intent Generator (`/server/storage/voice_intent_generator.go`)**
+- Generates comprehensive device command mappings from Zigbee2MQTT data
+- Exports current device states alongside properties for context-aware commands
+- Creates device categories with natural language synonyms (lights, lamps, bulbs)
+- Builds command-to-value mappings for direct device control
+- Supports zones and custom device names for natural language targeting
+
+```go
+type Device struct {
+    FriendlyName   string            `json:"friendly_name"`
+    IEEEAddress    string            `json:"ieee_address"`
+    CustomName     string            `json:"custom_name,omitempty"`
+    Categories     []string          `json:"categories"`      // Natural language categories
+    Zones          []string          `json:"zones"`
+    Properties     []DeviceProperty  `json:"properties"`
+    VoicePatterns  []string          `json:"voice_patterns"`
+}
+
+type DeviceProperty struct {
+    Name         string                 `json:"name"`
+    Commands     map[string]interface{} `json:"commands"`  // Command phrase → target value
+    CurrentValue interface{}            `json:"current_value,omitempty"`
+}
+```
+
+**2. Voice Command Processor (`/server/assets/voice/intent.py`)**
+- Priority-based device filtering: name > category > zone
+- Direct command-to-value mapping using JSON structure
+- Normalized text processing with filler word removal
+- Support for general commands (affects all lights/switches)
+- Returns structured device commands with IEEE addresses
+
+```python
+def find_devices(self, text: str) -> List[Dict]:
+    # 1. Try specific device names first (highest priority)
+    # 2. Try device categories (lights, switches, etc.)
+    # 3. Try zone-based targeting (living room, bedroom)
+    # 4. General commands for all controllable devices
+
+def process_command(self, text: str) -> Dict:
+    return {
+        'success': True,
+        'input': text,
+        'normalized': normalized_text,
+        'commands': [
+            {
+                'ieee_address': '0x001788010c7caac9',
+                'property': 'state',
+                'value': 'ON',
+                'command': 'turn on'
+            }
+        ]
+    }
+```
+
+**3. Voice Service Management (`/server/services/voice_service.go`)**
+- High-level voice service lifecycle management
+- Configuration updates with automatic restart
+- WebSocket event broadcasting for real-time updates
+- Device command execution via MQTT
+- Voice command history tracking
+
+**4. Voice Background Processing (`/server/services/voice_background.go`)**
+- Background voice processing worker
+- Integration with Python intent processor
+- Enhanced logging with device command details
+- Error handling and retry logic
+
+### Voice Intent Data Structure
+
+**Generated Intent Structure (`intents.json`):**
+```json
+{
+  "devices": [
+    {
+      "friendly_name": "0x001788010c7caac9",
+      "ieee_address": "0x001788010c7caac9",
+      "custom_name": "Right Lamp",
+      "categories": ["light", "lamp", "bulb"],
+      "zones": ["living_room"],
+      "properties": [
+        {
+          "name": "state",
+          "commands": {
+            "turn on": "ON",
+            "turn off": "OFF",
+            "toggle": "TOGGLE"
+          },
+          "current_value": "ON"
+        },
+        {
+          "name": "brightness",
+          "commands": {
+            "brighter": 254,
+            "dimmer": 203.2,
+            "max": 254,
+            "minimum": 0
+          },
+          "current_value": 254
+        }
+      ]
+    }
+  ],
+  "zones": {
+    "living_room": ["Right Lamp", "Left Lamp"]
+  }
+}
+```
+
+### Voice Processing Types
+
+**Voice Command Flow (`/server/types/voice_types.go`):**
+```go
+type IntentResult struct {
+    Success    bool            `json:"success"`
+    Input      string          `json:"input"`
+    Normalized string          `json:"normalized,omitempty"`
+    Commands   []DeviceCommand `json:"commands,omitempty"`
+    Error      string          `json:"error,omitempty"`
+}
+
+type DeviceCommand struct {
+    IEEEAddress  string      `json:"ieee_address"`
+    FriendlyName string      `json:"friendly_name"`
+    CustomName   string      `json:"custom_name"`
+    Property     string      `json:"property"`
+    Value        interface{} `json:"value"`
+    Command      string      `json:"command"`
+}
+```
+
+### Voice Processing Features
+
+**Device Targeting Strategies:**
+- **Direct Device Names**: "Turn on right lamp" → Targets specific device
+- **Category-based**: "Turn off lights" → All light-category devices
+- **Zone-based**: "Dim living room" → All devices in living room zone
+- **General Commands**: "Turn everything off" → All controllable devices
+
+**Command Processing Features:**
+- **Current State Awareness**: Commands consider current device values
+- **Computed Values**: Direct value calculation instead of relative changes
+- **Min/Max Support**: "Set brightness to minimum/maximum"
+- **Percentage Handling**: "Set brightness to 50%" → Calculated absolute value
+- **Natural Language**: Support for synonyms and varied phrasing
+
+**Error Handling and Recovery:**
+- **Device Not Found**: Clear error messages with suggestions
+- **Invalid Commands**: Property validation with supported actions
+- **Connection Issues**: Graceful degradation with retry logic
+- **History Tracking**: All commands logged with success/failure status
 
 ---
 

@@ -23,7 +23,7 @@ FRAME_BYTES = int(SR * (FRAME_MS/1000.0) * SAMPLE_BYTES)  # 2560 bytes
 WAV_HEADER = 44                 # bytes
 
 # Transcription settings
-MAX_AUDIO_SECONDS = 20          # Max audio to buffer for transcription
+MAX_AUDIO_SECONDS = 10          # Max audio to buffer for transcription
 SILENCE_TIMEOUT_MS = 1000       # Silence duration to trigger transcription
 AUDIO_BUFFER_SIZE = int(SR * MAX_AUDIO_SECONDS * SAMPLE_BYTES)  # bytes
 

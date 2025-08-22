@@ -2,26 +2,7 @@ version: '3.8'
 
 services:
   sumika:
-    image: azukaar/sumika
-    ports:
-      - "8081:8081"
-    volumes:
-      -  sumika-data:/app/build-data
-    devices:
-      - /dev:/dev      
+    build: .
     restart: unless-stopped
     environment:
       - TERM=xterm-256color
-  zigbee2mqtt:
-    image: koenkk/zigbee2mqtt:latest
-    ports:
-      - "8080:8080"
-    devices:
-      - /dev:/dev      
-    restart: unless-stopped
-    privileged: true
-    environment:
-      - TZ=UTC
-    volumes:
-      - /run/udev:/run/udev:ro
-      - zigbee2mqtt-data:/app/data

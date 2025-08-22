@@ -309,7 +309,7 @@ def main():
     ap.add_argument('--file', required=True, help='Path to audio.wav written by Go')
     ap.add_argument('--threshold', type=float, default=0.5, help='Activation threshold')
     ap.add_argument('--vad', type=float, default=-1.0, help='Set >=0.0 to enable VAD gate (0..1)')
-    ap.add_argument('--model', action='append', default=["sumika.onnx"], help='Optional paths or names of wakeword models to load')
+    ap.add_argument('--model', action='append', default=["sumika-model.onnx"], help='Optional paths or names of wakeword models to load')
     ap.add_argument('--whisper-model', default="large-v3", help='Whisper model to use (tiny, base, small, medium, large-v1, large-v2, large-v3, turbo)')
     ap.add_argument('--whisper-device', default="cpu", help='Device for Whisper (cpu/cuda)')
     ap.add_argument('--compute-type', default="int8", help='Compute type for Whisper (int8, int16, float16, float32)')
@@ -318,13 +318,8 @@ def main():
     if not os.path.exists(args.file):
         raise SystemExit(f"{args.file} does not exist yet")
 
-    # Download bundled models on first run if none specified
-    if not args.model:
-        try:
-            import openwakeword
-            openwakeword.utils.download_models()
-        except Exception:
-            pass
+    import openwakeword
+    openwakeword.utils.download_models()
 
     # Convert model filenames to full paths if they exist in the script directory
     script_dir = os.path.dirname(os.path.abspath(__file__))

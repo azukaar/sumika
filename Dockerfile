@@ -73,18 +73,21 @@ RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     ffmpeg \
     wget \
+    && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment and install packages
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# RUN python3 -m venv /opt/venv
+# ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python packages for voice processing
-RUN pip install --no-cache-dir \
-    numpy \
+RUN pip install --break-system-packages --no-cache-dir \
+    "numpy<2" \
     faster-whisper \
     pyaudio \
     soundfile \
+    openwakeword \
+    librosa \
     pydub
 
 # Optional: Install PyTorch with CUDA support (uncomment if needed)

@@ -39,11 +39,12 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     portaudio19-dev \
     ffmpeg \
+    && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment and install packages
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# RUN python3 -m venv /opt/venv
+# ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch with CUDA support first
 # RUN pip install --no-cache-dir \
@@ -52,11 +53,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 #     --index-url https://download.pytorch.org/whl/cu121
 
 # Install other packages
-RUN pip install --no-cache-dir \
-    numpy \
+RUN pip install --break-system-packages --no-cache-dir \
+    "numpy<2" \
     faster-whisper \
     pyaudio \
     soundfile \
+    openwakeword \
+    librosa \
     pydub
 
 # Create a non-root user to run the app

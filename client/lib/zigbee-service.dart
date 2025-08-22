@@ -29,7 +29,7 @@ class ZigbeeService {
           print('[DEBUG] ZigbeeService: Response body is null, returning empty list');
           return [];
         }
-        List<dynamic> jsonList = jsonDecode(response.body) as List<dynamic>;
+        List<dynamic> jsonList = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
         print('[DEBUG] ZigbeeService: Parsed ${jsonList.length} devices from JSON');
         return jsonList.map((json) => Device.fromJson(json)).toList();
       } else {
@@ -52,7 +52,7 @@ class ZigbeeService {
 
       if (response.statusCode == 200) {
         print('[DEBUG] ZigbeeService: Device specs response body length: ${response.body.length}');
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final Map<String, dynamic> jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
         final List<dynamic> devices = jsonResponse['devices'] ?? [];
         
         // Convert to a map keyed by device IEEE address for easy lookup
@@ -193,7 +193,7 @@ class ZigbeeService {
 
       if (response.statusCode == 200) {
         print('[DEBUG] ZigbeeService: Zones response body: ${response.body}');
-        List<dynamic> jsonList = jsonDecode(response.body) as List<dynamic>;
+        List<dynamic> jsonList = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
         final zones = jsonList.cast<String>();
         print('[DEBUG] ZigbeeService: Parsed ${zones.length} zones: $zones');
         return zones;
@@ -260,7 +260,7 @@ class ZigbeeService {
       );
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded == null) {
           return {};
         }

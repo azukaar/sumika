@@ -58,14 +58,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       print('[DEBUG] Dashboard: Loading all zones...');
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
       print('[DEBUG] Dashboard: Loaded ${allZones.length} zones: $allZones');
-      
+
       print('[DEBUG] Dashboard: Getting devices async value...');
       final devicesAsyncValue = ref.read(devicesProvider);
-      print('[DEBUG] Dashboard: Devices async value state: ${devicesAsyncValue.runtimeType}');
+      print(
+          '[DEBUG] Dashboard: Devices async value state: ${devicesAsyncValue.runtimeType}');
 
       await devicesAsyncValue.when(
         data: (devicesList) async {
-          print('[DEBUG] Dashboard: Devices data available, ${devicesList.length} devices');
+          print(
+              '[DEBUG] Dashboard: Devices data available, ${devicesList.length} devices');
           await _loadDashboardDataWithDevices(devicesList);
         },
         loading: () {
@@ -97,11 +99,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _loadDashboardDataWithDevices(List<Device> devicesList) async {
     try {
-      print('[DEBUG] Dashboard: Loading dashboard data with ${devicesList.length} devices');
+      print(
+          '[DEBUG] Dashboard: Loading dashboard data with ${devicesList.length} devices');
       // Load all zones (reuse if already loaded in _loadDashboardData)
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
       print('[DEBUG] Dashboard: Got ${allZones.length} zones for processing');
-      
+
       Map<String, List<Device>> newZoneDevices = {};
       Set<String> assignedDevices = {};
 
@@ -111,20 +114,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         List<Device> zoneDevicesList = [];
         final deviceNames =
             await ref.read(devicesProvider.notifier).getDevicesByZone(zone);
-        print('[DEBUG] Dashboard: Zone $zone has ${deviceNames.length} device names: $deviceNames');
+        print(
+            '[DEBUG] Dashboard: Zone $zone has ${deviceNames.length} device names: $deviceNames');
 
         for (String deviceName in deviceNames) {
           assignedDevices.add(deviceName); // Track assigned devices
-          final deviceIndex = devicesList.indexWhere((d) => d.friendlyName == deviceName);
+          final deviceIndex =
+              devicesList.indexWhere((d) => d.friendlyName == deviceName);
           if (deviceIndex != -1) {
             zoneDevicesList.add(devicesList[deviceIndex]);
             print('[DEBUG] Dashboard: Added device $deviceName to zone $zone');
           } else {
-            print('[DEBUG] Dashboard: WARNING - Device $deviceName not found in devices list');
+            print(
+                '[DEBUG] Dashboard: WARNING - Device $deviceName not found in devices list');
           }
         }
         newZoneDevices[zone] = zoneDevicesList;
-        print('[DEBUG] Dashboard: Zone $zone final device count: ${zoneDevicesList.length}');
+        print(
+            '[DEBUG] Dashboard: Zone $zone final device count: ${zoneDevicesList.length}');
       }
 
       // Add "Others" zone for unassigned devices
@@ -134,7 +141,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           unassignedDevices.add(device);
         }
       }
-      print('[DEBUG] Dashboard: Found ${unassignedDevices.length} unassigned devices');
+      print(
+          '[DEBUG] Dashboard: Found ${unassignedDevices.length} unassigned devices');
 
       // Create final zones list with "Others" if there are unassigned devices
       List<String> finalZones = [...allZones];
@@ -147,20 +155,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       setState(() {
         zones = finalZones;
         zoneDevices = newZoneDevices;
-        selectedZone = finalZones.isNotEmpty ? finalZones.first : null;
-        _currentPageIndex = 0;
+        selectedZone = finalZones.isNotEmpty && _currentPageIndex < finalZones.length 
+            ? finalZones[_currentPageIndex] 
+            : (finalZones.isNotEmpty ? finalZones.first : null);
         isLoading = false;
         hasConnectionError = false;
         errorMessage = null;
       });
+
       print('[DEBUG] Dashboard: Dashboard state updated successfully');
-      
+
       // Ensure PageController is synchronized with the reset state
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncPageController();
       });
     } catch (e, stackTrace) {
-      print('[DEBUG] Dashboard: Exception in _loadDashboardDataWithDevices: $e');
+      print(
+          '[DEBUG] Dashboard: Exception in _loadDashboardDataWithDevices: $e');
       print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
@@ -174,10 +185,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     // Watch for devices provider changes and reload dashboard data
     ref.listen<AsyncValue<List<Device>>>(devicesProvider, (previous, next) {
-      print('[DEBUG] Dashboard: Devices provider changed, previous: ${previous.runtimeType}, next: ${next.runtimeType}');
+      print(
+          '[DEBUG] Dashboard: Devices provider changed, previous: ${previous.runtimeType}, next: ${next.runtimeType}');
       next.whenData((devices) {
-        print('[DEBUG] Dashboard: Devices data available in listener, ${devices.length} devices, mounted: $mounted, isLoading: $isLoading');
-        if (mounted) {  // Always process device updates when mounted, regardless of loading state
+        print(
+            '[DEBUG] Dashboard: Devices data available in listener, ${devices.length} devices, mounted: $mounted, isLoading: $isLoading');
+        if (mounted) {
+          // Always process device updates when mounted, regardless of loading state
           _loadDashboardDataWithDevices(devices);
         }
       });
@@ -269,18 +283,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             .colorScheme
                             .errorContainer
                             .withOpacity(0.1),
-                        Theme.of(context)
-                            .colorScheme
-                            .error
-                            .withOpacity(0.05),
+                        Theme.of(context).colorScheme.error.withOpacity(0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .error
-                          .withOpacity(0.2),
+                      color:
+                          Theme.of(context).colorScheme.error.withOpacity(0.2),
                       width: 1,
                     ),
                   ),
@@ -690,7 +699,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               physics:
                   const AlwaysScrollableScrollPhysics(), // Force scrollability
               onPageChanged: (index) {
-                if (index < zones.length) {  // Safety check
+                if (index < zones.length) {
+                  // Safety check
                   setState(() {
                     _currentPageIndex = index;
                     selectedZone = zones[index];
@@ -731,7 +741,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       );
     }
   }
-  
+
   void _syncPageController() {
     // Ensure PageController is in sync with current state
     if (_pageController.hasClients && _currentPageIndex < zones.length) {
@@ -977,17 +987,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   String _getErrorMessage(dynamic error) {
     final errorString = error.toString().toLowerCase();
-    
-    if (errorString.contains('connection') || 
-        errorString.contains('network') || 
+
+    if (errorString.contains('connection') ||
+        errorString.contains('network') ||
         errorString.contains('timeout') ||
         errorString.contains('unreachable')) {
       return 'Unable to connect to the server. Check your network connection and server status.';
-    } else if (errorString.contains('404') || errorString.contains('not found')) {
+    } else if (errorString.contains('404') ||
+        errorString.contains('not found')) {
       return 'Server endpoint not found. Please check your server configuration.';
-    } else if (errorString.contains('500') || errorString.contains('internal server')) {
+    } else if (errorString.contains('500') ||
+        errorString.contains('internal server')) {
       return 'Server error occurred. Please try again or check server logs.';
-    } else if (errorString.contains('403') || errorString.contains('unauthorized')) {
+    } else if (errorString.contains('403') ||
+        errorString.contains('unauthorized')) {
       return 'Access denied. Please check your authentication credentials.';
     } else {
       return 'Failed to load dashboard data. Please check your server connection.';

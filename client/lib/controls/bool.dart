@@ -67,12 +67,12 @@ class _BoolControlState extends ConsumerState<BoolControl> {
         padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 6.0),
         margin: EdgeInsets.symmetric(vertical: 6.0),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.secondary, // accent color
-            width: 2.0, // border width
-          ),
-          borderRadius: BorderRadius.circular(12.0), // rounded corners
-        ),
+            // border: Border.all(
+            //   color: Theme.of(context).colorScheme.secondary, // accent color
+            //   width: 2.0, // border width
+            // ),
+            // borderRadius: BorderRadius.circular(12.0), // rounded corners
+            ),
         child: Column(
           children: [
             Text('$label'),

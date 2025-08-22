@@ -6,6 +6,7 @@ import './controls/controls.dart';
 import './zigbee-service.dart';
 import './utils/device_utils.dart';
 import './widgets/card_interaction_indicator.dart';
+import './widgets/specialized_device_cards.dart';
 
 enum DeviceWidgetMode { mini, full }
 
@@ -432,51 +433,83 @@ class DeviceWidget extends ConsumerWidget {
     // Get device type for smart control selection
     final deviceType = DeviceUtils.getDeviceType(device);
 
-    // For lights, find and show brightness control specifically
-    if (deviceType == 'light') {
-      // Find brightness expose
-      for (var expose in exposes) {
-        if (expose is Map<String, dynamic>) {
-          if (expose['property'] == 'brightness' ||
-              expose['name'] == 'brightness') {
-            return Container(
-              constraints: const BoxConstraints(maxHeight: 80),
-              child: ControlFromZigbeeWidget(
-                  expose: expose,
-                  device: device,
-                  hideIcons: true,
-                  hideLabel: true),
-            );
+    // Use specialized cards for specific device types
+    switch (deviceType) {
+      case 'switch':
+        // Check if this is a smart plug (has power/energy measurements)
+        bool hasPowerMeasurement = false;
+        for (var expose in exposes) {
+          final property = expose['property'] ?? expose['name'];
+          if (property == 'power' || property == 'energy') {
+            hasPowerMeasurement = true;
+            break;
           }
           // Check features within composite exposes
           if (expose['features'] != null) {
             for (var feature in expose['features']) {
-              if (feature['property'] == 'brightness' ||
-                  feature['name'] == 'brightness') {
-                return Container(
-                  constraints: const BoxConstraints(maxHeight: 80),
-                  child: ControlFromZigbeeWidget(
-                      expose: feature,
-                      device: device,
-                      hideIcons: true,
-                      hideLabel: true),
-                );
+              final featureProperty = feature['property'] ?? feature['name'];
+              if (featureProperty == 'power' || featureProperty == 'energy') {
+                hasPowerMeasurement = true;
+                break;
+              }
+            }
+          }
+          if (hasPowerMeasurement) break;
+        }
+        
+        if (hasPowerMeasurement) {
+          return SmartPlugCard(device: device);
+        }
+        break;
+      
+      case 'sensor':
+        return SensorCard(device: device);
+      
+      case 'light':
+        // For lights, find and show brightness control specifically
+        for (var expose in exposes) {
+          if (expose is Map<String, dynamic>) {
+            if (expose['property'] == 'brightness' ||
+                expose['name'] == 'brightness') {
+              return Container(
+                constraints: const BoxConstraints(maxHeight: 80),
+                child: ControlFromZigbeeWidget(
+                    expose: expose,
+                    device: device,
+                    hideIcons: true,
+                    hideLabel: true),
+              );
+            }
+            // Check features within composite exposes
+            if (expose['features'] != null) {
+              for (var feature in expose['features']) {
+                if (feature['property'] == 'brightness' ||
+                    feature['name'] == 'brightness') {
+                  return Container(
+                    constraints: const BoxConstraints(maxHeight: 80),
+                    child: ControlFromZigbeeWidget(
+                        expose: feature,
+                        device: device,
+                        hideIcons: true,
+                        hideLabel: true),
+                  );
+                }
               }
             }
           }
         }
-      }
 
-      // Fallback if no brightness found - use state control
-      final primaryControl =
-          _getPrimaryControlForDeviceType(deviceType, exposes);
-      if (primaryControl != null) {
-        return Container(
-          constraints: const BoxConstraints(maxHeight: 80),
-          child:
-              ControlFromZigbeeWidget(expose: primaryControl, device: device),
-        );
-      }
+        // Fallback if no brightness found - use state control
+        final primaryControl =
+            _getPrimaryControlForDeviceType(deviceType, exposes);
+        if (primaryControl != null) {
+          return Container(
+            constraints: const BoxConstraints(maxHeight: 80),
+            child:
+                ControlFromZigbeeWidget(expose: primaryControl, device: device),
+          );
+        }
+        break;
     }
 
     // For other devices, use existing control logic

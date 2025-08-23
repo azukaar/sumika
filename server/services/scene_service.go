@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -189,13 +190,10 @@ func (s *SceneService) ReorderScenes(orders []types.SceneOrder) error {
 	return s.repository.Reorder(orders)
 }
 
-// ApplySceneInZone applies a scene to devices in a specific zone (migrated from client logic)
+// ApplySceneInZone applies a scene to devices in a specific zone
 func (s *SceneService) ApplySceneInZone(sceneID, zoneName string) error {
 	if sceneID == "" {
 		return errors.New("scene ID cannot be empty")
-	}
-	if zoneName == "" {
-		return errors.New("zone name cannot be empty")
 	}
 
 	scene, err := s.repository.GetByID(sceneID)
@@ -204,6 +202,15 @@ func (s *SceneService) ApplySceneInZone(sceneID, zoneName string) error {
 	}
 	if scene == nil {
 		return errors.New("scene not found")
+	}
+
+	return s.ApplySceneFromDefinition(*scene, zoneName, 0.5)
+}
+
+// ApplySceneFromDefinition applies a scene definition to devices in a specific zone
+func (s *SceneService) ApplySceneFromDefinition(scene types.LightingScene, zoneName string, transition float64) error {
+	if zoneName == "" {
+		return errors.New("zone name cannot be empty")
 	}
 
 	// Get devices in the zone
@@ -232,12 +239,16 @@ func (s *SceneService) ApplySceneInZone(sceneID, zoneName string) error {
 		return fmt.Errorf("no light devices found in zone '%s'", zoneName)
 	}
 
+	// Sort light devices alphabetically for consistent color assignment
+	sort.Strings(lightDevices)
+
 	fmt.Printf("Applying scene %s to %d light devices in zone %s\n", scene.Name, len(lightDevices), zoneName)
 
-	// Apply scene colors to lights, looping if more lights than colors (migrated from client)
+	// Apply scene colors to lights, looping from start if more lights than colors
 	appliedCount := 0
 	for i, deviceName := range lightDevices {
-		sceneLight := scene.Lights[i%len(scene.Lights)] // Loop through colors
+		colorIndex := i % len(scene.Lights) // Loop colors from start when we have more lights
+		sceneLight := scene.Lights[colorIndex]
 
 		// Build state update based on client logic
 		jsonState := map[string]interface{}{
@@ -247,7 +258,7 @@ func (s *SceneService) ApplySceneInZone(sceneID, zoneName string) error {
 				"hue":        sceneLight.Hue,
 				"saturation": sceneLight.Saturation * 100, // Convert to 0-100 for Zigbee
 			},
-			"transition": 0.5, // Add transition for smooth color change
+			"transition": transition, // Add transition for smooth color change
 		}
 
 		// Convert to JSON for MQTT
@@ -273,78 +284,8 @@ func (s *SceneService) ApplySceneInZone(sceneID, zoneName string) error {
 
 // TestSceneDefinitionInZone tests a scene definition in a zone without saving it
 func (s *SceneService) TestSceneDefinitionInZone(sceneDefinition types.LightingScene, zoneName string) error {
-	if zoneName == "" {
-		return errors.New("zone name cannot be empty")
-	}
-
-	// Validate the scene definition
-	if err := s.validateScene(sceneDefinition); err != nil {
-		return fmt.Errorf("invalid scene definition: %w", err)
-	}
-
-	// Get devices in the zone
-	zoneDevices := storage.GetDevicesByZone(zoneName)
-	if len(zoneDevices) == 0 {
-		return fmt.Errorf("no devices found in zone '%s'", zoneName)
-	}
-
-	// Filter for light devices only (devices that have brightness or color capabilities)
-	var lightDevices []string
-	for _, deviceName := range zoneDevices {
-		deviceProperties := zigbee2mqtt.GetDeviceProperties(deviceName)
-		isLight := false
-		for _, prop := range deviceProperties {
-			if prop == "brightness" || prop == "color" || prop == "color_temp" {
-				isLight = true
-				break
-			}
-		}
-		if isLight {
-			lightDevices = append(lightDevices, deviceName)
-		}
-	}
-
-	if len(lightDevices) == 0 {
-		return fmt.Errorf("no light devices found in zone '%s'", zoneName)
-	}
-
-	fmt.Printf("Testing scene definition '%s' on %d light devices in zone %s\n", sceneDefinition.Name, len(lightDevices), zoneName)
-
-	// Apply scene colors to lights, looping if more lights than colors
-	appliedCount := 0
-	for i, deviceName := range lightDevices {
-		sceneLight := sceneDefinition.Lights[i%len(sceneDefinition.Lights)] // Loop through colors
-
-		// Build state update based on client logic
-		jsonState := map[string]interface{}{
-			"state":      "ON", // Ensure light is on
-			"brightness": sceneLight.Brightness,
-			"color": map[string]interface{}{
-				"hue":        sceneLight.Hue,
-				"saturation": sceneLight.Saturation * 100, // Convert to 0-100 for Zigbee
-			},
-			"transition": 0.5, // Add transition for smooth color change
-		}
-
-		// Convert to JSON for MQTT
-		stateJSON, err := json.Marshal(jsonState)
-		if err != nil {
-			fmt.Printf("Failed to marshal device state for %s: %v\n", deviceName, err)
-			continue
-		}
-
-		// Apply to device using existing zigbee2mqtt function
-		zigbee2mqtt.SetDeviceState(deviceName, string(stateJSON))
-		appliedCount++
-		fmt.Printf("Applied scene definition to device %s in zone %s\n", deviceName, zoneName)
-	}
-
-	if appliedCount == 0 {
-		return fmt.Errorf("failed to apply scene definition to any devices in zone '%s'", zoneName)
-	}
-
-	fmt.Printf("Successfully tested scene definition '%s' on %d devices in zone %s\n", sceneDefinition.Name, appliedCount, zoneName)
-	return nil
+	// Use the shared scene application logic directly
+	return s.ApplySceneFromDefinition(sceneDefinition, zoneName, 0.2)
 }
 
 

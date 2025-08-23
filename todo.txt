@@ -46,6 +46,7 @@
 - Device page do not update on websocket message received
 
   # Others
+- FE has code that goes to Uri.parse('$url/scene-management/test?zone=$zone'), which does not exist
 - Docker file should pre-download  faster-whisper models (right now the py script needs to be called once manually it seems)
 - Webhooks????
 - Refactor server/MQTT and zigbee2MQTT

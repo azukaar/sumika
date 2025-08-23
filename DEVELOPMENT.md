@@ -326,6 +326,11 @@ mixin ErrorHandlingMixin<T extends StatefulWidget> on State<T> {
    - Use structured logging with `LogContext`
    - Never use raw `print()` statements
 
+7. **Scene Application Logic**
+   - Use existing `SceneService.ApplySceneInZone()` method
+   - Never duplicate scene-to-device application code
+   - Create temporary scenes if needed rather than copying logic
+
 ### Code Review Checklist
 
 **Before Creating New Code:**

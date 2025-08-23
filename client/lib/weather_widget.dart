@@ -104,12 +104,16 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                   location.greeting,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
                     fontWeight: FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
-                ),
-              
+                )
+              else
+                const SizedBox(height: 4),
               // Time
               Text(
                 location.formattedTime,
@@ -119,13 +123,14 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              
+
               // Date
               Text(
                 location.formattedDate,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   fontWeight: FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -133,7 +138,7 @@ class _WeatherWidgetState extends State<WeatherWidget> {
             ],
           ),
         ),
-        
+
         // Weather info
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -141,7 +146,10 @@ class _WeatherWidgetState extends State<WeatherWidget> {
             gradient: LinearGradient(
               colors: [
                 Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
-                Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.1),
+                Theme.of(context)
+                    .colorScheme
+                    .secondaryContainer
+                    .withOpacity(0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(12),
@@ -174,12 +182,15 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                     current.weatherDesc,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
                     ),
                   ),
                 ],
               ),
-              
+
               // Additional info for larger screens
               if (MediaQuery.of(context).size.width > 450) ...[
                 const SizedBox(width: 16),
@@ -199,14 +210,20 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                           Icon(
                             Icons.air_rounded,
                             size: 12,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
                           ),
                           const SizedBox(width: 2),
                           Text(
                             current.windSpeedString,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
                             ),
                           ),
                         ],
@@ -218,14 +235,20 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                           Icon(
                             Icons.water_drop_rounded,
                             size: 12,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
                           ),
                           const SizedBox(width: 2),
                           Text(
                             '${current.humidity.round()}%',
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
                             ),
                           ),
                         ],
@@ -253,7 +276,8 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                 width: 120,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -262,7 +286,8 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                 width: 180,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -286,11 +311,11 @@ class _WeatherWidgetState extends State<WeatherWidget> {
     if (_isLoading) {
       return _buildLoadingHeader();
     }
-    
+
     if (_weatherData != null && _errorMessage.isEmpty) {
       return _buildWeatherHeader();
     }
-    
+
     // Fallback to simple header if weather is not available
     return _buildFallbackHeader();
   }

@@ -434,7 +434,8 @@ client/lib/
 │   └── error_handler.dart        # Centralized error handling
 ├── utils/
 │   ├── error_handler.dart        # Error handling utilities
-│   └── device_utils.dart         # Device-specific utilities
+│   ├── device_utils.dart         # Device-specific utilities
+│   └── greeting_utils.dart       # Centralized time-based greeting utilities
 ├── types.dart                    # Core data types
 ├── automation_types.dart         # Automation-specific types
 ├── websocket_service.dart        # Real-time communication

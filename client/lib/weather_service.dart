@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'url_config_service.dart';
+import './utils/greeting_utils.dart';
 
 class WeatherService {
   static WeatherData? _cachedWeatherData;
@@ -199,9 +200,6 @@ class LocationInfo {
 
   // Get time of day greeting
   String get greeting {
-    final hour = currentTime.hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    return 'Good ${GreetingUtils.getTimeOfDay(dateTime: currentTime).toLowerCase()}';
   }
 }

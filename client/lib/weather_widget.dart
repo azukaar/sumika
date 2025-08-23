@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'weather_service.dart';
+import './utils/greeting_utils.dart';
 
 class WeatherWidget extends StatefulWidget {
   final String? selectedZone;
@@ -62,16 +63,7 @@ class _WeatherWidgetState extends State<WeatherWidget> {
 
   // Fallback widget when weather is not available
   Widget _buildFallbackHeader() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    String greeting;
-    if (hour < 12) {
-      greeting = 'Good morning';
-    } else if (hour < 17) {
-      greeting = 'Good afternoon';
-    } else {
-      greeting = 'Good evening';
-    }
+    final greeting = 'Good ${GreetingUtils.getTimeOfDay().toLowerCase()}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,15 +98,17 @@ class _WeatherWidgetState extends State<WeatherWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting
-              Text(
-                location.greeting,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  fontWeight: FontWeight.normal,
+              // Greeting - only show if screen width >= 400px
+              if (MediaQuery.of(context).size.width >= 400)
+                Text(
+                  location.greeting,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    fontWeight: FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
               
               // Time
               Text(
@@ -134,6 +128,7 @@ class _WeatherWidgetState extends State<WeatherWidget> {
                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   fontWeight: FontWeight.normal,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

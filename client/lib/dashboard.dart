@@ -9,6 +9,7 @@ import './utils/device_utils.dart';
 import './supercard/lights_supercard.dart';
 import './supercard/scene_supercard.dart';
 import './weather_widget.dart';
+import './utils/greeting_utils.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -967,16 +968,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  String _getTimeOfDay() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Morning';
-    } else if (hour < 17) {
-      return 'Afternoon';
-    } else {
-      return 'Evening';
-    }
-  }
 
   String _getErrorMessage(dynamic error) {
     final errorString = error.toString().toLowerCase();

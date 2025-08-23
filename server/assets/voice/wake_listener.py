@@ -305,6 +305,8 @@ def stdin_monitor(reader):
             time.sleep(1)
 
 def main():
+    print("Starting wake word listener...")
+    
     ap = argparse.ArgumentParser()
     ap.add_argument('--file', required=True, help='Path to audio.wav written by Go')
     ap.add_argument('--threshold', type=float, default=0.5, help='Activation threshold')

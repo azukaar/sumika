@@ -507,7 +507,11 @@ func (vr *VoiceRunner) run() {
             "--whisper-device", vr.config.WhisperDevice,
             "--compute-type", vr.config.ComputeType)
         py.Stderr = os.Stderr
-        
+
+        if os.Getenv("DEBUG_PYTHON") != "" {
+            log.Printf("🔊 Starting Python listener with args: %v", py.Args)
+        }
+
         // Create pipes for stdin and stdout
         stdin, err := py.StdinPipe()
         if err != nil {
@@ -536,6 +540,9 @@ func (vr *VoiceRunner) run() {
                 line := scanner.Text()
                 var event PythonEvent
                 if err := json.Unmarshal([]byte(line), &event); err != nil {
+                    if os.Getenv("DEBUG_PYTHON") != "" {
+                        log.Printf("🔊 AUDIO DEBUG: %s", event)
+                    }
                     continue
                 }
                 

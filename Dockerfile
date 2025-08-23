@@ -73,6 +73,11 @@ RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     ffmpeg \
     wget \
+    libasound2-dev \
+    libpulse-dev \
+    libjack-jackd2-dev \
+    alsa-utils \
+    pulseaudio-utils \
     && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 

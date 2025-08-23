@@ -102,9 +102,6 @@ RUN usermod -a -G audio appuser
 
 RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/
 
-# Run /app/assets/voice/preload.py
-RUN python /app/assets/voice/preload.py
-
 USER appuser
 
 WORKDIR /app
@@ -114,6 +111,9 @@ COPY --from=go_builder /app/sumika-server /app/
 
 # Copy the Flutter web build to the static directory
 COPY --from=flutter_builder /app/client/build/web /app/web
+
+# Run /app/assets/voice/preload.py
+RUN python /app/assets/voice/preload.py
 
 # Copy server assets (scene images, voice assets, etc.) from the Go builder stage
 COPY --from=go_builder /app/server/assets /app/assets

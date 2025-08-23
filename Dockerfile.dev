@@ -68,8 +68,6 @@ USER appuser
 
 RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/
 
-# Run /app/assets/voice/preload.py
-RUN python /app/assets/voice/preload.py
 
 WORKDIR /app
 
@@ -78,6 +76,9 @@ COPY --from=go_builder /app/sumika-server /app/
 
 # Copy server assets (scene images, etc.) from the builder stage where we have the full source
 COPY --from=go_builder /app/server/assets /app/assets
+
+# Run /app/assets/voice/preload.py
+RUN python /app/assets/voice/preload.py
 
 # Copy device metadata script and install dependencies
 COPY device-metadata-script/ /app/device-metadata-script/

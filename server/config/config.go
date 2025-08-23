@@ -32,6 +32,9 @@ type Config struct {
 	// Voice recognition configuration
 	Voice VoiceConfig `json:"voice"`
 	
+	// Weather configuration
+	Weather WeatherConfig `json:"weather"`
+	
 	// Development/Debug settings
 	Debug DebugConfig `json:"debug"`
 }
@@ -49,6 +52,7 @@ type ServerConfig struct {
 	KeyFile        string        `json:"key_file"`
 	CORSEnabled    bool          `json:"cors_enabled"`
 	CORSOrigins    []string      `json:"cors_origins"`
+	Timezone       string        `json:"timezone"`
 }
 
 // LoggingConfig holds logging configuration
@@ -123,6 +127,14 @@ type VoiceConfig struct {
 	WakeThreshold float64 `json:"wake_threshold"`
 }
 
+// WeatherConfig holds weather configuration
+type WeatherConfig struct {
+	Enabled   bool    `json:"enabled"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Location  string  `json:"location"`
+}
+
 // DebugConfig holds debug and development settings
 type DebugConfig struct {
 	Enabled                bool `json:"enabled"`
@@ -184,6 +196,12 @@ func GetConfig() *Config {
 
 // getDefaultConfig returns configuration with default values
 func getDefaultConfig() *Config {
+	// Get timezone from environment, default to UTC
+	timezone := os.Getenv("TZ")
+	if timezone == "" {
+		timezone = "UTC"
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host:           "0.0.0.0",
@@ -197,6 +215,7 @@ func getDefaultConfig() *Config {
 			KeyFile:        "",
 			CORSEnabled:    true,
 			CORSOrigins:    []string{"*"},
+			Timezone:       timezone,
 		},
 		Logging: LoggingConfig{
 			Level:          "INFO",
@@ -258,6 +277,12 @@ func getDefaultConfig() *Config {
 			OutputDevice:  "default",
 			WakeThreshold: 0.5,
 		},
+		Weather: WeatherConfig{
+			Enabled:   false,
+			Latitude:  0.0,
+			Longitude: 0.0,
+			Location:  "",
+		},
 		Debug: DebugConfig{
 			Enabled:                false,
 			ShowInternalErrors:     false,
@@ -297,6 +322,9 @@ func loadFromEnvironment(config *Config) {
 	}
 	if cors := os.Getenv("SUMIKA_CORS_ENABLED"); cors != "" {
 		config.Server.CORSEnabled = cors == "true"
+	}
+	if timezone := os.Getenv("SUMIKA_TIMEZONE"); timezone != "" {
+		config.Server.Timezone = timezone
 	}
 
 	// Logging configuration
@@ -365,6 +393,24 @@ func loadFromEnvironment(config *Config) {
 		if t, err := strconv.ParseFloat(threshold, 64); err == nil {
 			config.Voice.WakeThreshold = t
 		}
+	}
+
+	// Weather configuration
+	if enabled := os.Getenv("SUMIKA_WEATHER_ENABLED"); enabled != "" {
+		config.Weather.Enabled = enabled == "true"
+	}
+	if latitude := os.Getenv("SUMIKA_WEATHER_LATITUDE"); latitude != "" {
+		if lat, err := strconv.ParseFloat(latitude, 64); err == nil {
+			config.Weather.Latitude = lat
+		}
+	}
+	if longitude := os.Getenv("SUMIKA_WEATHER_LONGITUDE"); longitude != "" {
+		if lon, err := strconv.ParseFloat(longitude, 64); err == nil {
+			config.Weather.Longitude = lon
+		}
+	}
+	if location := os.Getenv("SUMIKA_WEATHER_LOCATION"); location != "" {
+		config.Weather.Location = location
 	}
 
 	// Debug configuration

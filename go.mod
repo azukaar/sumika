@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/hectormalot/omgo v0.1.3 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect

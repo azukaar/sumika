@@ -139,6 +139,16 @@ func main() {
 		r.HandleFunc("/api/voice/history", httpHandlers.API_GetVoiceHistory).Methods("GET")
 		r.HandleFunc("/api/voice/status", httpHandlers.API_GetVoiceStatus).Methods("GET")
 		
+		// Weather endpoint
+		r.HandleFunc("/api/weather/current", httpHandlers.API_GetCurrentWeather).Methods("GET")
+		
+		// Geocoding endpoints
+		r.HandleFunc("/api/geocoding/search", httpHandlers.API_SearchCities).Methods("GET")
+		
+		// Timezone endpoints
+		r.HandleFunc("/api/timezones/search", httpHandlers.API_SearchTimezones).Methods("GET")
+		r.HandleFunc("/api/timezones", httpHandlers.API_GetAllTimezones).Methods("GET")
+		
 		// WebSocket endpoint for real-time updates
 		r.HandleFunc("/ws", realtime.HandleWebSocket)
 

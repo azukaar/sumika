@@ -1,5 +1,4 @@
 # dashboard
-- !Weather / clock supercards for dashboard
 - Allow pining device property for dashboard manually rather than auto selecting
 - Toggle supercard per zones
 - Add energy monitoring supercard for dashboard
@@ -8,8 +7,8 @@
 - Add toggleable camera dashboard as a self-contained zone
 
 # Automations
-- !Add multiple sequential actions for automations
 - !Add timers and other actions for automations
+- !Add multiple sequential actions for automations
 - !time / weather based automations
 - Voice trigger
 - Add conditions for automations
@@ -41,11 +40,12 @@
 - AI integration
 
 # Bugs 
-- min height issue on mobile for dashboard cards
+- voice history missing
 - System setting page broken on web
 - When using external broker, some messages are being duplicated.
 - Device page do not update on websocket message received
 
-# Others
+  # Others
+- Docker file should pre-download  faster-whisper models (right now the py script needs to be called once manually it seems)
 - Webhooks????
 - Refactor server/MQTT and zigbee2MQTT

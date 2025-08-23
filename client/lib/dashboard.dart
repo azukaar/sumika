@@ -8,6 +8,7 @@ import './device-widget.dart';
 import './utils/device_utils.dart';
 import './supercard/lights_supercard.dart';
 import './supercard/scene_supercard.dart';
+import './weather_widget.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -525,51 +526,48 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Good ${_getTimeOfDay()}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            Text(
-              selectedZone?.replaceAll('_', ' ') ?? 'Dashboard',
-              style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(96),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          flexibleSpace: SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: WeatherWidget(
+                      selectedZone: selectedZone,
+                    ),
                   ),
-            ),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.settings_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
+                  Container(
+                    margin: const EdgeInsets.only(left: 16),
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.settings_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      onPressed: () => Navigator.pushNamed(context, '/settings'),
+                    ),
+                  ),
+                ],
               ),
-              onPressed: () => Navigator.pushNamed(context, '/settings'),
             ),
           ),
-        ],
+        ),
       ),
       body: Column(
         children: [

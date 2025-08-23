@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:dropdown_search/dropdown_search.dart';
 import 'url_config_service.dart';
 import 'api_config.dart';
 import 'zigbee-service.dart';
@@ -9,6 +10,7 @@ import 'scene_management_service.dart';
 import 'automation_service.dart';
 import 'device_metadata_service.dart';
 import 'websocket_service.dart';
+import 'geocoding_service.dart';
 
 class SystemSettingsPage extends ConsumerStatefulWidget {
   const SystemSettingsPage({Key? key}) : super(key: key);
@@ -20,13 +22,19 @@ class SystemSettingsPage extends ConsumerStatefulWidget {
 class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
+  
+  // Weather/Location configuration
+  GeocodingResult? _selectedCity;
+  TimezoneInfo? _selectedTimezone;
   bool _isLoading = false;
   bool _isTesting = false;
   bool _isRestarting = false;
   bool _isLoadingVoice = false;
+  bool _isLoadingConfig = false;
   String? _errorMessage;
   String? _successMessage;
   String? _currentUrl;
+  Map<String, dynamic>? _serverConfig;
   
   // Voice configuration
   Map<String, dynamic>? _voiceConfig;
@@ -54,9 +62,112 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
       _urlController.text = url ?? '';
     });
     
-    // Load voice configuration if connected
+    // Load voice and server configuration if connected
     if (url != null && url.isNotEmpty) {
       _loadVoiceConfiguration();
+      _loadServerConfiguration();
+    }
+  }
+
+  Future<void> _loadServerConfiguration() async {
+    if (_currentUrl == null || _currentUrl!.isEmpty) return;
+    
+    setState(() {
+      _isLoadingConfig = true;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('${_currentUrl}/api/config'));
+      
+      if (response.statusCode == 200) {
+        final config = json.decode(response.body);
+        setState(() {
+          _serverConfig = config;
+          
+          // Load weather configuration
+          if (config['weather'] != null) {
+            final weather = config['weather'];
+            if (weather['latitude'] != null && weather['longitude'] != null && 
+                weather['latitude'] != 0.0 && weather['longitude'] != 0.0) {
+              // Create a pseudo-city from stored data
+              _selectedCity = GeocodingResult(
+                id: 0, // Placeholder ID
+                name: weather['location'] ?? 'Unknown Location',
+                latitude: (weather['latitude'] ?? 0.0).toDouble(),
+                longitude: (weather['longitude'] ?? 0.0).toDouble(),
+                elevation: 0.0,
+                featureCode: '',
+                countryCode: '',
+                countryId: 0,
+                country: '',
+                timezone: config['server']?['timezone'] ?? 'UTC',
+                population: 0,
+              );
+            }
+          }
+          
+          // Load timezone from server config
+          if (config['server'] != null && config['server']['timezone'] != null) {
+            final timezoneId = config['server']['timezone'];
+            _selectedTimezone = TimezoneInfo(
+              id: timezoneId,
+              displayName: timezoneId,
+              region: timezoneId.split('/').first,
+              city: timezoneId.split('/').last.replaceAll('_', ' '),
+            );
+          }
+        });
+      }
+    } catch (e) {
+      print('Failed to load server configuration: $e');
+    } finally {
+      setState(() {
+        _isLoadingConfig = false;
+      });
+    }
+  }
+
+  Future<void> _saveWeatherConfiguration() async {
+    if (_currentUrl == null || _serverConfig == null) return;
+
+    setState(() {
+      _isLoadingConfig = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      // Update configuration with new values
+      _serverConfig!['weather'] = {
+        'enabled': _selectedCity != null,
+        'latitude': _selectedCity?.latitude ?? 0.0,
+        'longitude': _selectedCity?.longitude ?? 0.0,
+        'location': _selectedCity?.shortDisplayName ?? '',
+      };
+      
+      _serverConfig!['server']['timezone'] = _selectedTimezone?.id ?? 'UTC';
+
+      final response = await http.put(
+        Uri.parse('${_currentUrl}/api/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(_serverConfig),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _successMessage = 'Weather configuration saved successfully. Server will restart.';
+        });
+      } else {
+        throw Exception('Server returned error ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to save weather configuration: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoadingConfig = false;
+      });
     }
   }
 
@@ -377,6 +488,219 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
     }
   }
 
+
+  Widget _buildWeatherConfigSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Weather & Location',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // City Search Dropdown
+        DropdownSearch<GeocodingResult>(
+          selectedItem: _selectedCity,
+          items: (String filter, infiniteScrollProps) async {
+            if (filter.length < 2) return [];
+            try {
+              return await GeocodingService.searchCities(filter, count: 20);
+            } catch (e) {
+              print('Error searching cities: $e');
+              return [];
+            }
+          },
+          itemAsString: (GeocodingResult city) => city.displayName,
+          compareFn: (GeocodingResult item1, GeocodingResult item2) => item1.id == item2.id,
+          onChanged: (GeocodingResult? city) {
+            setState(() {
+              _selectedCity = city;
+              // Auto-select timezone if city has one and no timezone is selected
+              if (city != null && city.timezone.isNotEmpty && _selectedTimezone == null) {
+                _selectedTimezone = TimezoneInfo(
+                  id: city.timezone,
+                  displayName: city.timezone,
+                  region: city.timezone.split('/').first,
+                  city: city.timezone.split('/').last.replaceAll('_', ' '),
+                );
+              }
+            });
+          },
+          popupProps: PopupProps.menu(
+            showSearchBox: true,
+            searchDelay: const Duration(milliseconds: 500),
+            itemBuilder: (context, item, isDisabled, isSelected) {
+              return ListTile(
+                leading: Icon(Icons.location_city_rounded),
+                title: Text(item.name),
+                subtitle: Text('${item.country} • ${item.timezone}'),
+                trailing: item.population > 0 
+                    ? Text('${(item.population / 1000).round()}k', style: TextStyle(fontSize: 12))
+                    : null,
+              );
+            },
+          ),
+          decoratorProps: DropDownDecoratorProps(
+            decoration: InputDecoration(
+              labelText: 'City',
+              hintText: 'Search for your city...',
+              prefixIcon: Icon(Icons.search_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              helperText: 'Search and select your city',
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Timezone Search Dropdown
+        DropdownSearch<TimezoneInfo>(
+          selectedItem: _selectedTimezone,
+          items: (String filter, infiniteScrollProps) async {
+            try {
+              return await GeocodingService.searchTimezones(filter, limit: 50);
+            } catch (e) {
+              print('Error searching timezones: $e');
+              return [];
+            }
+          },
+          itemAsString: (TimezoneInfo timezone) => timezone.displayName,
+          compareFn: (TimezoneInfo item1, TimezoneInfo item2) => item1.id == item2.id,
+          onChanged: (TimezoneInfo? timezone) {
+            setState(() {
+              _selectedTimezone = timezone;
+            });
+          },
+          popupProps: PopupProps.menu(
+            showSearchBox: true,
+            searchDelay: const Duration(milliseconds: 300),
+            itemBuilder: (context, item, isDisabled, isSelected) {
+              return ListTile(
+                leading: Icon(Icons.access_time_rounded),
+                title: Text(item.city),
+                subtitle: Text('${item.region} • ${item.id}'),
+              );
+            },
+          ),
+          decoratorProps: DropDownDecoratorProps(
+            decoration: InputDecoration(
+              labelText: 'Timezone',
+              hintText: 'Search for your timezone...',
+              prefixIcon: Icon(Icons.access_time_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              helperText: 'Search and select your timezone',
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Show selected location info
+        if (_selectedCity != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Selected Location',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${_selectedCity!.displayName}\nCoordinates: ${_selectedCity!.latitude.toStringAsFixed(4)}, ${_selectedCity!.longitude.toStringAsFixed(4)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        
+        // Save Weather Configuration Button
+        ElevatedButton(
+          onPressed: (_isLoadingConfig || _selectedCity == null || _selectedTimezone == null) 
+              ? null 
+              : _saveWeatherConfiguration,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: _isLoadingConfig
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Saving...'),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.save_rounded),
+                    const SizedBox(width: 8),
+                    Text('Save Weather Settings'),
+                  ],
+                ),
+        ),
+        
+        if (_selectedCity == null || _selectedTimezone == null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Please select both a city and timezone to enable weather',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
   Widget _buildVoiceConfigSection() {
     return Column(
@@ -1083,6 +1407,12 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
                             ],
                           ),
                         ),
+                      ],
+
+                      // Weather Configuration Section (only show if connected)
+                      if (_currentUrl != null && _currentUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        _buildWeatherConfigSection(),
                       ],
 
                       // Voice Configuration Section (only show if connected)

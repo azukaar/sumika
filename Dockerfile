@@ -113,7 +113,7 @@ COPY --from=go_builder /app/sumika-server /app/
 COPY --from=flutter_builder /app/client/build/web /app/web
 
 # Run /app/assets/voice/preload.py
-RUN python /app/assets/voice/preload.py
+RUN python /app/sumika-server/assets/voice/preload.py
 
 # Copy server assets (scene images, voice assets, etc.) from the Go builder stage
 COPY --from=go_builder /app/server/assets /app/assets

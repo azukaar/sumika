@@ -155,9 +155,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       setState(() {
         zones = finalZones;
         zoneDevices = newZoneDevices;
-        selectedZone = finalZones.isNotEmpty && _currentPageIndex < finalZones.length 
-            ? finalZones[_currentPageIndex] 
-            : (finalZones.isNotEmpty ? finalZones.first : null);
+        selectedZone =
+            finalZones.isNotEmpty && _currentPageIndex < finalZones.length
+                ? finalZones[_currentPageIndex]
+                : (finalZones.isNotEmpty ? finalZones.first : null);
         isLoading = false;
         hasConnectionError = false;
         errorMessage = null;
@@ -876,7 +877,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         // Calculate responsive grid
         final width = constraints.maxWidth;
         int crossAxisCount = 2; // Default for mobile
-        double minCardHeight = 200.0; // Minimum card height
+        double minCardHeight = 200.0; // Minimum card height - never below 200px
 
         if (width > 1200) {
           crossAxisCount = 5; // Very wide screens
@@ -886,13 +887,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           minCardHeight = 210.0;
         } else if (width > 600) {
           crossAxisCount = 3; // Tablet landscape
-          minCardHeight = 200.0;
+          minCardHeight = 210.0;
         } else if (width > 400) {
           crossAxisCount = 2; // Tablet portrait / large phone
-          minCardHeight = 190.0;
+          minCardHeight = 200.0;
         } else {
           crossAxisCount = 1; // Small phone
-          minCardHeight = 180.0;
+          minCardHeight = 200.0;
         }
 
         // Calculate card width and ensure aspect ratio doesn't make cards too short

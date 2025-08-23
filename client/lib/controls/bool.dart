@@ -64,8 +64,8 @@ class _BoolControlState extends ConsumerState<BoolControl> {
       return Text('$label: $valueString');
     } else {
       return Container(
-        padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 6.0),
-        margin: EdgeInsets.symmetric(vertical: 6.0),
+        padding: EdgeInsets.symmetric(vertical: 6.0, horizontal: 6.0),
+        margin: EdgeInsets.symmetric(vertical: 0),
         decoration: BoxDecoration(
             // border: Border.all(
             //   color: Theme.of(context).colorScheme.secondary, // accent color

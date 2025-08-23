@@ -560,7 +560,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           size: 20,
                         ),
                       ),
-                      onPressed: () => Navigator.pushNamed(context, '/settings'),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/settings'),
                     ),
                   ),
                 ],
@@ -875,23 +876,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         // Calculate responsive grid
         final width = constraints.maxWidth;
         int crossAxisCount = 2; // Default for mobile
-        double minCardHeight = 200.0; // Minimum card height - never below 200px
+        double minCardHeight = 220.0; // Minimum card height - never below 200px
 
-        if (width > 1200) {
-          crossAxisCount = 5; // Very wide screens
-          minCardHeight = 220.0; // Taller cards for wide screens
-        } else if (width > 900) {
+        if (width > 1100) {
           crossAxisCount = 4; // Desktop
-          minCardHeight = 210.0;
-        } else if (width > 600) {
+        } else if (width > 750) {
           crossAxisCount = 3; // Tablet landscape
-          minCardHeight = 210.0;
-        } else if (width > 400) {
+        } else if (width > 500) {
           crossAxisCount = 2; // Tablet portrait / large phone
-          minCardHeight = 200.0;
         } else {
           crossAxisCount = 1; // Small phone
-          minCardHeight = 200.0;
         }
 
         // Calculate card width and ensure aspect ratio doesn't make cards too short

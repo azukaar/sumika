@@ -100,7 +100,7 @@ RUN pip install --break-system-packages --no-cache-dir \
 RUN useradd -m -u 1000 appuser
 RUN usermod -a -G audio appuser
 
-RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/openwakeword/
+RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/
 
 # Run /app/assets/voice/preload.py
 RUN python /app/assets/voice/preload.py

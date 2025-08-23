@@ -87,7 +87,7 @@ class RestartableFileReader:
         return np.frombuffer(frame, dtype=np.int16)
 
 class SpeechProcessor:
-    def __init__(self, whisper_model="large-v3", device="cpu", compute_type="int16"):
+    def __init__(self, whisper_model="base", device="cpu", compute_type="int8"):
         self.whisper_model = WhisperModel(whisper_model, device=device, compute_type=compute_type)
         self.audio_buffer = deque(maxlen=int(AUDIO_BUFFER_SIZE // FRAME_BYTES))
         self.state = ListenerState.WAKE_WORD_DETECTION
@@ -310,7 +310,7 @@ def main():
     ap.add_argument('--threshold', type=float, default=0.5, help='Activation threshold')
     ap.add_argument('--vad', type=float, default=-1.0, help='Set >=0.0 to enable VAD gate (0..1)')
     ap.add_argument('--model', action='append', default=["sumika-model.onnx"], help='Optional paths or names of wakeword models to load')
-    ap.add_argument('--whisper-model', default="large-v3", help='Whisper model to use (tiny, base, small, medium, large-v1, large-v2, large-v3, turbo)')
+    ap.add_argument('--whisper-model', default="base", help='Whisper model to use (tiny, base, small, medium, large-v1, large-v2, large-v3, turbo)')
     ap.add_argument('--whisper-device', default="cpu", help='Device for Whisper (cpu/cuda)')
     ap.add_argument('--compute-type', default="int8", help='Compute type for Whisper (int8, int16, float16, float32)')
     args = ap.parse_args()

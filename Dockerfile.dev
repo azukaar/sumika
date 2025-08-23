@@ -66,6 +66,11 @@ RUN pip install --break-system-packages --no-cache-dir \
 RUN useradd -m -u 1000 appuser
 USER appuser
 
+RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/openwakeword/
+
+# Run /app/assets/voice/preload.py
+RUN python /app/assets/voice/preload.py
+
 WORKDIR /app
 
 # Copy the compiled Go binary from the builder stage

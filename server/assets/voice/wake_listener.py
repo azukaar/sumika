@@ -309,7 +309,7 @@ def main():
     
     ap = argparse.ArgumentParser()
     ap.add_argument('--file', required=True, help='Path to audio.wav written by Go')
-    ap.add_argument('--threshold', type=float, default=0.5, help='Activation threshold')
+    ap.add_argument('--threshold', type=float, default=0.6, help='Activation threshold')
     ap.add_argument('--vad', type=float, default=-1.0, help='Set >=0.0 to enable VAD gate (0..1)')
     ap.add_argument('--model', action='append', default=["sumika-model.onnx"], help='Optional paths or names of wakeword models to load')
     ap.add_argument('--whisper-model', default="base", help='Whisper model to use (tiny, base, small, medium, large-v1, large-v2, large-v3, turbo)')

@@ -112,11 +112,11 @@ COPY --from=go_builder /app/sumika-server /app/
 # Copy the Flutter web build to the static directory
 COPY --from=flutter_builder /app/client/build/web /app/web
 
-# Run /app/assets/voice/preload.py
-RUN python /app/sumika-server/assets/voice/preload.py
-
 # Copy server assets (scene images, voice assets, etc.) from the Go builder stage
 COPY --from=go_builder /app/server/assets /app/assets
+
+# Run /app/assets/voice/preload.py
+RUN python /app/assets/voice/preload.py
 
 # Copy device metadata script and install dependencies
 COPY device-metadata-script/ /app/device-metadata-script/

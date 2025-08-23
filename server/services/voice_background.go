@@ -553,6 +553,9 @@ func (vr *VoiceRunner) run() {
                         log.Printf("👂 Started listening for speech...")
                     }
                 case "audio_debug":
+                    if os.Getenv("DEBUG_PYTHON") != "" {
+                        log.Printf("🔊 AUDIO DEBUG: %s", event.Message)
+                    }
                 case "silence_detected":
                     PlayAudioFile("processing-soundreality.wav")
                     log.Printf("🔇 %s", event.Message)

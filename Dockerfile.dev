@@ -69,18 +69,17 @@ RUN pip install --break-system-packages --no-cache-dir \
 
 # Create a non-root user to run the app
 RUN useradd -m -u 1000 appuser
-USER appuser
-
 RUN chown -R appuser /usr/local/lib/python3.11/dist-packages/
+USER appuser
 
 
 WORKDIR /app
 
 # Copy the compiled Go binary from the builder stage
-COPY --from=go_builder /app/sumika-server /app/
+COPY --chown=appuser --from=go_builder /app/sumika-server /app/
 
 # Copy server assets (scene images, etc.) from the builder stage where we have the full source
-COPY --from=go_builder /app/server/assets /app/assets
+COPY --chown=appuser --from=go_builder /app/server/assets /app/assets
 
 # Run /app/assets/voice/preload.py
 RUN python /app/assets/voice/preload.py

@@ -12,14 +12,10 @@ class DeviceSpecsNotifier extends BaseAsyncNotifier<Map<String, dynamic>> {
 
   @override
   Future<Map<String, dynamic>> loadData() async {
-    print('[DEBUG] DeviceSpecsNotifier: Starting to load device specifications');
     try {
       final specs = await _service.fetchDeviceSpecifications();
-      print('[DEBUG] DeviceSpecsNotifier: Successfully loaded ${specs.length} device specifications');
       return specs;
     } catch (e, stackTrace) {
-      print('[DEBUG] DeviceSpecsNotifier: Error loading device specifications: $e');
-      print('[DEBUG] DeviceSpecsNotifier: Stack trace: $stackTrace');
       rethrow;
     }
   }
@@ -29,7 +25,6 @@ class DeviceSpecsNotifier extends BaseAsyncNotifier<Map<String, dynamic>> {
     try {
       return state.whenData((specs) => specs[ieeeAddress]).value;
     } catch (e) {
-      print('[DEBUG] DeviceSpecsNotifier: Error getting specs for device $ieeeAddress: $e');
       return null;
     }
   }
@@ -41,7 +36,6 @@ class DeviceSpecsNotifier extends BaseAsyncNotifier<Map<String, dynamic>> {
       final metadata = deviceSpecs?['enhanced_metadata'];
       return metadata is Map<String, dynamic> ? metadata : null;
     } catch (e) {
-      print('[DEBUG] DeviceSpecsNotifier: Error getting enhanced metadata for device $ieeeAddress: $e');
       return null;
     }
   }
@@ -53,7 +47,6 @@ class DeviceSpecsNotifier extends BaseAsyncNotifier<Map<String, dynamic>> {
       final exposes = metadata?['exposes'];
       return exposes is List ? exposes : null;
     } catch (e) {
-      print('[DEBUG] DeviceSpecsNotifier: Error getting device exposes for device $ieeeAddress: $e');
       return null;
     }
   }
@@ -65,7 +58,6 @@ class DeviceSpecsNotifier extends BaseAsyncNotifier<Map<String, dynamic>> {
       final options = metadata?['options'];
       return options is List ? options : null;
     } catch (e) {
-      print('[DEBUG] DeviceSpecsNotifier: Error getting device options for device $ieeeAddress: $e');
       return null;
     }
   }

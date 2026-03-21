@@ -483,11 +483,6 @@ class _SceneManagementPageState extends ConsumerState<SceneManagementPage> {
     final item = reorderedScenes.removeAt(oldIndex);
     reorderedScenes.insert(newIndex, item);
 
-    // Debug: Log the scenes we're reordering
-    for (var i = 0; i < reorderedScenes.length; i++) {
-      final scene = reorderedScenes[i];
-    }
-
     // Update orders
     final sceneOrders = <Map<String, dynamic>>[];
     for (var i = 0; i < reorderedScenes.length; i++) {

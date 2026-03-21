@@ -7,12 +7,11 @@ require (
 	github.com/gen2brain/malgo v0.11.23
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
+	github.com/hectormalot/omgo v0.1.3
 	github.com/mochi-mqtt/server/v2 v2.7.7
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
-	github.com/hectormalot/omgo v0.1.3 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect

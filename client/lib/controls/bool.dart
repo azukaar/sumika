@@ -5,7 +5,6 @@ import '../types.dart';
 import './utils.dart';
 import '../zigbee-service.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:interactive_slider/interactive_slider.dart';
 
 class BoolControl extends ConsumerStatefulWidget {
   final Map<String, dynamic> expose;
@@ -30,7 +29,6 @@ class _BoolControlState extends ConsumerState<BoolControl> {
     } else if (v == 'false') {
       return false;
     } else {
-      final falseValue = (widget.expose['value_off'] ?? 'false').toString();
       final trueValue = (widget.expose['value_on'] ?? 'true').toString();
       return v == trueValue;
     }
@@ -51,11 +49,8 @@ class _BoolControlState extends ConsumerState<BoolControl> {
 
   @override
   Widget build(BuildContext context) {
-    final devicesState = ref.watch(devicesProvider);
-
     final prop = widget.expose['property'] as String;
     final access = widget.expose['access'];
-    final name = widget.expose['name'];
     final label = widget.expose['label'];
     var value = _value;
     var valueString = convertToString(_value);
@@ -66,13 +61,7 @@ class _BoolControlState extends ConsumerState<BoolControl> {
       return Container(
         padding: EdgeInsets.symmetric(vertical: 6.0, horizontal: 6.0),
         margin: EdgeInsets.symmetric(vertical: 0),
-        decoration: BoxDecoration(
-            // border: Border.all(
-            //   color: Theme.of(context).colorScheme.secondary, // accent color
-            //   width: 2.0, // border width
-            // ),
-            // borderRadius: BorderRadius.circular(12.0), // rounded corners
-            ),
+        decoration: const BoxDecoration(),
         child: Column(
           children: [
             Text('$label'),

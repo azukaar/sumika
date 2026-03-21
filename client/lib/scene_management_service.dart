@@ -217,7 +217,7 @@ class SceneManagementNotifier
 
   Future<void> createScene(LightingScene scene) async {
     try {
-      final createdScene = await _service.createScene(scene);
+      await _service.createScene(scene);
       await loadScenes(); // Refresh list
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);

@@ -3,15 +3,7 @@ package http
 import (
 	"net/http"
 	"strconv"
-	
-	"github.com/azukaar/sumika/server/services"
 )
-
-var geocodingService *services.GeocodingService
-
-func init() {
-	geocodingService = services.NewGeocodingService()
-}
 
 // API_SearchCities searches for cities using geocoding
 func API_SearchCities(w http.ResponseWriter, r *http.Request) {

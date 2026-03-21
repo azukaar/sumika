@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './types.dart';
 import './controls/controls.dart';
-import './zigbee-service.dart';
 import './utils/device_utils.dart';
 import './widgets/card_interaction_indicator.dart';
 import './widgets/specialized_device_cards.dart';
@@ -533,12 +532,6 @@ class DeviceWidget extends ConsumerWidget {
 
   Map<String, dynamic>? _getPrimaryControlForDeviceType(
       String deviceType, List<dynamic> exposes) {
-    for (var expose in exposes) {
-      final property = expose['property'] ?? expose['name'] ?? 'unnamed';
-      final type = expose['type'];
-      final access = expose['access'];
-    }
-
     // Priority order for different device types
     Map<String, List<String>> devicePriorities = {
       'light': ['state', 'brightness', 'color_temp', 'color_hs'],
@@ -655,25 +648,4 @@ class DeviceWidget extends ConsumerWidget {
     return null;
   }
 
-  Widget _buildQuickControls(BuildContext context) {
-    final exposes = device.definition.exposes;
-    if (exposes == null || exposes.isEmpty) {
-      return const SizedBox();
-    }
-
-    // Find primary control and use the existing control system
-    for (var expose in exposes) {
-      final access = expose['access'];
-
-      if (access == 1 || access == 5) continue;
-
-      // Use existing control but in a constrained container
-      return Container(
-        constraints: const BoxConstraints(maxWidth: 100, maxHeight: 40),
-        child: ControlFromZigbeeWidget(expose: expose, device: device),
-      );
-    }
-
-    return const SizedBox();
-  }
 }

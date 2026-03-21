@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import './types.dart';
 import './zigbee-service.dart';
 import './controls/controls.dart';
 import './zone-widget.dart';
 import './device_metadata_widget.dart';
 import './utils/device_utils.dart';
-import './state/device_specs_notifier.dart';
 
 class ZigbeeDevicePage extends ConsumerStatefulWidget {
   const ZigbeeDevicePage({super.key});
@@ -17,7 +15,6 @@ class ZigbeeDevicePage extends ConsumerStatefulWidget {
 }
 
 class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
-  String _responseData = 'No data yet';
   bool _isDeletingDevice = false;
 
   @override
@@ -169,23 +166,14 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
     return devicesState.when(
       data: (devices) {
         // Get the latest version of this device
-        print('[DEBUG] DevicePage: Building with ${devices.length} devices available');
-        print('[DEBUG] DevicePage: Looking for device: ${deviceRef.friendlyName}');
-        print('[DEBUG] DevicePage: Available devices: ${devices.map((d) => d.friendlyName).join(', ')}');
-        
         final device = devices.firstWhere(
           (d) {
-            print('[DEBUG] DevicePage: Comparing "${d.friendlyName}" with "${deviceRef.friendlyName}"');
             return d.friendlyName == deviceRef.friendlyName;
           },
           orElse: () {
-            print('[DEBUG] DevicePage: Device ${deviceRef.friendlyName} NOT FOUND in live data, using stale reference');
             return deviceRef;
           },
         );
-        
-        print('[DEBUG] DevicePage: Using ${device == deviceRef ? "STALE" : "FRESH"} device data for ${device.friendlyName}');
-        print('[DEBUG] DevicePage: Device state: ${device.state}');
         
         final cleanModel = device.definition.model?.replaceAll(' ', '-');
 
@@ -209,10 +197,7 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () {
-                  print('[DEBUG] DevicePage: Refresh button clicked for device: ${device.friendlyName}');
-                  print('[DEBUG] DevicePage: Current device state: ${device.state}');
                   ref.read(devicesProvider.notifier).refreshDeviceState(device.friendlyName);
-                  print('[DEBUG] DevicePage: Refresh command sent');
                 },
               ),
               PopupMenuButton<String>(

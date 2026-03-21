@@ -12,10 +12,6 @@ class DeviceUtils {
     return 'unknown';
   }
   
-  static bool _containsAny(String text, List<String> keywords) {
-    return keywords.any((keyword) => text.contains(keyword));
-  }
-
   // Get the display name for a device (custom name if available, otherwise friendly name)
   static String getDeviceDisplayName(Device device) {
     if (device.customName != null && device.customName!.isNotEmpty) {

@@ -5,3 +5,4 @@ zigbee2mqtt-data/
 docker-compose.dev-local.yml
 _DEBUG/
 device-metadata-script/node_modules/
+docker-compose.dev.yml

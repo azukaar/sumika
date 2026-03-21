@@ -18,7 +18,6 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
   @override
   Widget build(BuildContext context) {
     final automationsAsyncValue = ref.watch(automationNotifierProvider);
-    final devicesAsyncValue = ref.watch(devicesProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,

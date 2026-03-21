@@ -9,7 +9,8 @@ import './utils/device_utils.dart';
 import './supercard/lights_supercard.dart';
 import './supercard/scene_supercard.dart';
 import './weather_widget.dart';
-import './utils/greeting_utils.dart';
+import './widgets/settings_icon_button.dart';
+import './widgets/gradient_action_button.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -48,7 +49,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Future<void> _loadDashboardData() async {
-    print('[DEBUG] Dashboard: Starting to load dashboard data...');
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -57,30 +57,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
     try {
       // Load all zones and devices
-      print('[DEBUG] Dashboard: Loading all zones...');
-      final allZones = await ref.read(devicesProvider.notifier).getAllZones();
-      print('[DEBUG] Dashboard: Loaded ${allZones.length} zones: $allZones');
+      await ref.read(devicesProvider.notifier).getAllZones();
 
-      print('[DEBUG] Dashboard: Getting devices async value...');
       final devicesAsyncValue = ref.read(devicesProvider);
-      print(
-          '[DEBUG] Dashboard: Devices async value state: ${devicesAsyncValue.runtimeType}');
 
       await devicesAsyncValue.when(
         data: (devicesList) async {
-          print(
-              '[DEBUG] Dashboard: Devices data available, ${devicesList.length} devices');
           await _loadDashboardDataWithDevices(devicesList);
         },
         loading: () {
-          print('[DEBUG] Dashboard: Devices still loading...');
           setState(() {
             isLoading = true;
           });
         },
         error: (error, stackTrace) {
-          print('[DEBUG] Dashboard: Devices error: $error');
-          print('[DEBUG] Dashboard: Error stack trace: $stackTrace');
           setState(() {
             isLoading = false;
             hasConnectionError = true;
@@ -89,8 +79,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         },
       );
     } catch (e, stackTrace) {
-      print('[DEBUG] Dashboard: Exception in _loadDashboardData: $e');
-      print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
         hasConnectionError = true;
@@ -101,23 +89,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _loadDashboardDataWithDevices(List<Device> devicesList) async {
     try {
-      print(
-          '[DEBUG] Dashboard: Loading dashboard data with ${devicesList.length} devices');
       // Load all zones (reuse if already loaded in _loadDashboardData)
       final allZones = await ref.read(devicesProvider.notifier).getAllZones();
-      print('[DEBUG] Dashboard: Got ${allZones.length} zones for processing');
 
       Map<String, List<Device>> newZoneDevices = {};
       Set<String> assignedDevices = {};
 
       // Process regular zones
       for (String zone in allZones) {
-        print('[DEBUG] Dashboard: Processing zone: $zone');
         List<Device> zoneDevicesList = [];
         final deviceNames =
             await ref.read(devicesProvider.notifier).getDevicesByZone(zone);
-        print(
-            '[DEBUG] Dashboard: Zone $zone has ${deviceNames.length} device names: $deviceNames');
 
         for (String deviceName in deviceNames) {
           assignedDevices.add(deviceName); // Track assigned devices
@@ -125,15 +107,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               devicesList.indexWhere((d) => d.friendlyName == deviceName);
           if (deviceIndex != -1) {
             zoneDevicesList.add(devicesList[deviceIndex]);
-            print('[DEBUG] Dashboard: Added device $deviceName to zone $zone');
-          } else {
-            print(
-                '[DEBUG] Dashboard: WARNING - Device $deviceName not found in devices list');
           }
         }
         newZoneDevices[zone] = zoneDevicesList;
-        print(
-            '[DEBUG] Dashboard: Zone $zone final device count: ${zoneDevicesList.length}');
       }
 
       // Add "Others" zone for unassigned devices
@@ -143,17 +119,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           unassignedDevices.add(device);
         }
       }
-      print(
-          '[DEBUG] Dashboard: Found ${unassignedDevices.length} unassigned devices');
-
       // Create final zones list with "Others" if there are unassigned devices
       List<String> finalZones = [...allZones];
       if (unassignedDevices.isNotEmpty) {
         finalZones.add("Others");
         newZoneDevices["Others"] = unassignedDevices;
       }
-      print('[DEBUG] Dashboard: Final zones: $finalZones');
-
       setState(() {
         zones = finalZones;
         zoneDevices = newZoneDevices;
@@ -166,16 +137,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         errorMessage = null;
       });
 
-      print('[DEBUG] Dashboard: Dashboard state updated successfully');
-
       // Ensure PageController is synchronized with the reset state
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncPageController();
       });
     } catch (e, stackTrace) {
-      print(
-          '[DEBUG] Dashboard: Exception in _loadDashboardDataWithDevices: $e');
-      print('[DEBUG] Dashboard: Exception stack trace: $stackTrace');
       setState(() {
         isLoading = false;
         hasConnectionError = true;
@@ -188,11 +154,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     // Watch for devices provider changes and reload dashboard data
     ref.listen<AsyncValue<List<Device>>>(devicesProvider, (previous, next) {
-      print(
-          '[DEBUG] Dashboard: Devices provider changed, previous: ${previous.runtimeType}, next: ${next.runtimeType}');
       next.whenData((devices) {
-        print(
-            '[DEBUG] Dashboard: Devices data available in listener, ${devices.length} devices, mounted: $mounted, isLoading: $isLoading');
         if (mounted) {
           // Always process device updates when mounted, regardless of loading state
           _loadDashboardDataWithDevices(devices);
@@ -204,29 +166,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Dashboard'),
-          actions: [
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primaryContainer
-                        .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.settings_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                onPressed: () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ),
-          ],
+          actions: const [SettingsIconButton()],
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -245,29 +185,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
           ),
-          actions: [
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primaryContainer
-                        .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.settings_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                onPressed: () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ),
-          ],
+          actions: const [SettingsIconButton()],
         ),
         body: Center(
           child: Padding(
@@ -325,52 +243,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withOpacity(0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // Restart WebSocket connection and reload devices on retry
-                      ref.read(webSocketServiceProvider).restartConnection();
-                      ref.read(devicesProvider.notifier).loadDevices();
-                      _loadDashboardData();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.refresh_rounded, size: 20),
-                    label: const Text(
-                      'Retry Connection',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                GradientActionButton(
+                  onPressed: () {
+                    ref.read(webSocketServiceProvider).restartConnection();
+                    ref.read(devicesProvider.notifier).loadDevices();
+                    _loadDashboardData();
+                  },
+                  icon: Icons.refresh_rounded,
+                  label: 'Retry Connection',
                 ),
               ],
             ),
@@ -391,29 +271,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
           ),
-          actions: [
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primaryContainer
-                        .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.settings_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                onPressed: () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ),
-          ],
+          actions: const [SettingsIconButton()],
         ),
         body: Center(
           child: Padding(
@@ -476,47 +334,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withOpacity(0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/zones'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add_rounded, size: 20),
-                    label: const Text(
-                      'Create Your First Zone',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                GradientActionButton(
+                  onPressed: () => Navigator.pushNamed(context, '/zones'),
+                  icon: Icons.add_rounded,
+                  label: 'Create Your First Zone',
                 ),
               ],
             ),
@@ -543,27 +364,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       selectedZone: selectedZone,
                     ),
                   ),
-                  Container(
-                    margin: const EdgeInsets.only(left: 16),
-                    child: IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primaryContainer
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.settings_rounded,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 20,
-                        ),
-                      ),
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/settings'),
-                    ),
+                  const SettingsIconButton(
+                    margin: EdgeInsets.only(left: 16),
                   ),
                 ],
               ),

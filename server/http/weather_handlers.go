@@ -2,16 +2,9 @@ package http
 
 import (
 	"net/http"
-	
-	"github.com/azukaar/sumika/server/services"
+
 	"github.com/azukaar/sumika/server/errors"
 )
-
-var weatherService *services.WeatherService
-
-func init() {
-	weatherService = services.NewWeatherService()
-}
 
 // API_GetCurrentWeather returns current weather data
 func API_GetCurrentWeather(w http.ResponseWriter, r *http.Request) {

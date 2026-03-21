@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import './types.dart';
 import './zigbee-service.dart';
 import './device-widget.dart';
 
@@ -13,8 +11,6 @@ class ZigbeeDevicesPage extends ConsumerStatefulWidget {
 }
 
 class _ZigbeeDevicesPageState extends ConsumerState<ZigbeeDevicesPage> {
-  String _responseData = 'No data yet';
-
   @override
   void initState() {
     super.initState();

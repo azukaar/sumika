@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/azukaar/sumika/server/config"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type LoggingLevel string
@@ -20,15 +19,16 @@ const (
 )
 
 var LoggingLevelLabels = map[LoggingLevel]LogLevel{
-	"DEBUG": DEBUG,
-	"INFO": INFO,
+	"DEBUG":   DEBUG,
+	"INFO":    INFO,
 	"WARNING": WARNING,
-	"ERROR": ERROR,
+	"ERROR":   ERROR,
+	"FATAL":   FATAL,
 }
 
 var (
 	Reset    = "\033[0m"
-	Bold		 = "\033[1m"
+	Bold     = "\033[1m"
 	nRed     = "\033[31m"
 	nGreen   = "\033[32m"
 	nYellow  = "\033[33m"
@@ -52,60 +52,14 @@ var (
 
 type LogLevel int
 
-var (
-	logger      *log.Logger
-	errorLogger *log.Logger
-
-	loggerPlain      *log.Logger
-	errorLoggerPlain *log.Logger
-)
-
-func InitLogs() {
-	RawLogMessage(DEBUG, "[DEBUG]", bPurple, nPurple, "Initializing logs in ./sumika.log")
-
-	// Set up lumberjack log rotation
-	ljLogger := &lumberjack.Logger{
-		Filename:   "./sumika.log",
-		MaxSize:    15, // megabytes
-		MaxBackups: 2,
-		MaxAge:     16, // days
-		Compress:   true,
-	}
-
-	ljLoggerPlain := &lumberjack.Logger{
-		Filename:   "./sumika.plain.log",
-		MaxSize:    15, // megabytes
-		MaxBackups: 2,
-		MaxAge:     16, // days
-		Compress:   true,
-	}
-
-	// Create loggers
-	logger = log.New(ljLogger, "", log.Ldate|log.Ltime)
-	errorLogger = log.New(ljLogger, "", log.Ldate|log.Ltime)
-
-	loggerPlain = log.New(ljLoggerPlain, "", log.Ldate|log.Ltime)
-	errorLoggerPlain = log.New(ljLoggerPlain, "", log.Ldate|log.Ltime)
-}
-
 func RawLogMessage(level LogLevel, prefix, prefixColor, color, message string) {
-	ll := LoggingLevelLabels[LoggingLevel(config.GetConfig().Logging.Level)]
+	ll, ok := LoggingLevelLabels[LoggingLevel(config.GetConfig().Logging.Level)]
+	if !ok {
+		ll = INFO
+	}
 	if ll <= level {
 		logString := prefixColor + Bold + prefix + Reset + " " + color + message + Reset
-		
 		log.Println(logString)
-
-		if logger == nil || errorLogger == nil || loggerPlain == nil || errorLoggerPlain == nil {
-			return
-		}
-
-		if level >= ERROR {
-			errorLogger.Println(logString)
-			errorLoggerPlain.Println(prefix + " " + message)
-		} else {
-			logger.Println(logString)
-			loggerPlain.Println(prefix + " " + message)
-		}
 	}
 }
 
@@ -124,7 +78,6 @@ func LogReq(message string) {
 func Warn(message string) {
 	RawLogMessage(WARNING, "[WARN] ", bYellow, nYellow, message)
 }
-
 
 func Error(message string, err error) {
 	errStr := ""

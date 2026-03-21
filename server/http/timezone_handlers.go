@@ -3,15 +3,7 @@ package http
 import (
 	"net/http"
 	"strconv"
-	
-	"github.com/azukaar/sumika/server/services"
 )
-
-var timezoneService *services.TimezoneService
-
-func init() {
-	timezoneService = services.NewTimezoneService()
-}
 
 // API_SearchTimezones searches for timezones
 func API_SearchTimezones(w http.ResponseWriter, r *http.Request) {

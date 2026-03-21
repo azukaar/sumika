@@ -967,7 +967,6 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
   Widget _buildHistoryEntry(Map<String, dynamic> entry) {
     final transcription = entry['transcription']?.toString() ?? '';
     final success = entry['success'] == true;
-    final timestamp = entry['timestamp']?.toString() ?? '';
     final command = entry['command']?.toString() ?? '';
     
     return Padding(

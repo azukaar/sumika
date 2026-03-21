@@ -9,6 +9,9 @@ var (
 	sceneService      *services.SceneService
 	automationService *services.AutomationService
 	voiceService      *services.VoiceService
+	geocodingService  *services.GeocodingService
+	timezoneService   *services.TimezoneService
+	weatherService    *services.WeatherService
 )
 
 // InitServices initializes ALL HTTP handlers with service dependencies
@@ -16,4 +19,7 @@ func InitServices(scene *services.SceneService, automation *services.AutomationS
 	sceneService = scene
 	automationService = automation
 	voiceService = voice
+	geocodingService = services.NewGeocodingService()
+	timezoneService = services.NewTimezoneService()
+	weatherService = services.NewWeatherService()
 }

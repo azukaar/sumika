@@ -21,13 +21,14 @@ func main() {
 	fmt.Println("Starting Sumika API Server...")
 	
 	// Load configuration from file and environment
-	cfg, err := config.Load(config.GetConfigFilePath())
+	configPath := config.GetConfigFilePath()
+	cfg, err := config.Load(configPath)
 	if err != nil {
-		fmt.Printf("Warning: Failed to load configuration: %v\n", err)
+		fmt.Printf("Warning: Failed to load configuration from %s: %v\n", configPath, err)
 		fmt.Println("Using default configuration...")
 		cfg = config.GetConfig()
 	} else {
-		fmt.Println("Configuration loaded successfully")
+		fmt.Printf("Configuration loaded from %s\n", configPath)
 	}
 	
 	// Initialize storage system

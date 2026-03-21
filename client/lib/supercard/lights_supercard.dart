@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import '../controls/master_control.dart';
 import '../widgets/card_interaction_indicator.dart';

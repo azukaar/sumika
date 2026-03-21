@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../types.dart';
 import './utils.dart';
 import '../zigbee-service.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:interactive_slider/interactive_slider.dart';
 import './custom_color_picker.dart';
 
 class ColorControl extends ConsumerStatefulWidget {
@@ -52,11 +50,6 @@ class _ColorControlState extends ConsumerState<ColorControl> {
   }
 
   List<Color> getHueColors(double sat) {
-    // return [
-    //   HSVColor.fromAHSV(1, 1, 1.0, 1).toColor(),
-    //   HSVColor.fromAHSV(1, 100, 1.0, 1).toColor(),
-    // ];
-
     if (sat < 0.1) {
       sat = 0.1;
     }
@@ -76,15 +69,7 @@ class _ColorControlState extends ConsumerState<ColorControl> {
 
     return devicesState.when(
       data: (allDevices) {
-        // Get current device state
-        final currentDevice = allDevices.firstWhere(
-          (d) => d.friendlyName == widget.device.friendlyName,
-          orElse: () => widget.device,
-        );
-
-        final prop = widget.expose['property'] as String;
         final access = widget.expose['access'];
-        final name = widget.expose['name'];
         final label = widget.expose['label'];
 
 

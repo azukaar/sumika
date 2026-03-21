@@ -273,37 +273,6 @@ class _AutomationCreatePageState extends ConsumerState<AutomationCreatePage> {
     );
   }
 
-  Widget _buildTypeSection(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Automation Type',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...AutomationTypes.all.map((type) => _buildTypeOption(context, type)),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTypeOption(BuildContext context, String type) {
     final isSelected = _selectedType == type;
     
@@ -708,10 +677,6 @@ class _AutomationCreatePageState extends ConsumerState<AutomationCreatePage> {
     }
   }
 
-  Widget _buildValueFieldForProperty(String label, dynamic value, String? property, ValueChanged<dynamic> onChanged) {
-    return _buildValueFieldForPropertyAndDevice(label, value, property, null, onChanged);
-  }
-
   Widget _buildValueFieldForZoneProperty(String label, dynamic value, String? property, ValueChanged<dynamic> onChanged) {
     if (property == null) {
       return _buildDefaultTextField(label, value, onChanged);
@@ -764,11 +729,6 @@ class _AutomationCreatePageState extends ConsumerState<AutomationCreatePage> {
     );
   }
   
-  // Deprecated method - use _buildValueFieldForProperty instead
-  Widget _buildValueField(String label, dynamic value, ValueChanged<dynamic> onChanged) {
-    return _buildValueFieldForProperty(label, value, null, onChanged);
-  }
-
   Widget _buildStateToggle(String label, dynamic value, ValueChanged<dynamic> onChanged) {
     // Determine current selection
     final isOff = value == 'OFF' || value == false;
@@ -903,25 +863,6 @@ class _AutomationCreatePageState extends ConsumerState<AutomationCreatePage> {
     );
   }
 
-  List<String> _getAvailableProperties(List<Device> devices, String deviceName, {bool forAction = false}) {
-    final device = devices.firstWhere((d) => d.friendlyName == deviceName);
-    final deviceType = DeviceUtils.getDeviceType(device);
-    
-    var properties = DeviceProperties.getAvailablePropertiesForDeviceType(deviceType);
-    
-    // For actions, filter out read-only properties
-    if (forAction) {
-      properties = properties.where((prop) => 
-          prop != DeviceProperties.battery &&
-          prop != DeviceProperties.temperature &&
-          prop != DeviceProperties.humidity &&
-          prop != DeviceProperties.illuminance
-      ).toList();
-    }
-    
-    return properties;
-  }
-
   PropertyValueType _getPropertyValueType(String deviceName, String property) {
     // Get the device state
     final deviceState = _deviceStates[deviceName];
@@ -970,20 +911,6 @@ class _AutomationCreatePageState extends ConsumerState<AutomationCreatePage> {
       'short_press', 'release', 'action'
     };
     return buttonActions.contains(value.toLowerCase());
-  }
-
-  // Legacy methods - kept for compatibility but should use _getPropertyValueType instead
-  bool _isStateProperty(String? property) {
-    return property == 'state';
-  }
-
-  bool _isNumericProperty(String? property) {
-    return property == 'brightness' ||
-           property == 'color_temp' ||
-           property == 'temperature' ||
-           property == 'humidity' ||
-           property == 'illuminance' ||
-           property == 'battery';
   }
 
   Future<void> _loadTriggerDeviceProperties(String deviceName) async {

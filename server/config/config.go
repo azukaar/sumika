@@ -11,32 +11,12 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	// Server configuration
-	Server ServerConfig `json:"server"`
-	
-	// Logging configuration
-	Logging LoggingConfig `json:"logging"`
-	
-	// Database configuration
+	Server   ServerConfig   `json:"server"`
+	Logging  LoggingConfig  `json:"logging"`
 	Database DatabaseConfig `json:"database"`
-	
-	// API configuration
-	API APIConfig `json:"api"`
-	
-	// WebSocket configuration
-	WebSocket WebSocketConfig `json:"websocket"`
-	
-	// Zigbee configuration
-	Zigbee ZigbeeConfig `json:"zigbee"`
-	
-	// Voice recognition configuration
-	Voice VoiceConfig `json:"voice"`
-	
-	// Weather configuration
-	Weather WeatherConfig `json:"weather"`
-	
-	// Development/Debug settings
-	Debug DebugConfig `json:"debug"`
+	Voice    VoiceConfig    `json:"voice"`
+	Weather  WeatherConfig  `json:"weather"`
+	Debug    DebugConfig    `json:"debug"`
 }
 
 // ServerConfig holds server-specific configuration
@@ -47,73 +27,17 @@ type ServerConfig struct {
 	WriteTimeout   time.Duration `json:"write_timeout"`
 	IdleTimeout    time.Duration `json:"idle_timeout"`
 	MaxHeaderBytes int           `json:"max_header_bytes"`
-	TLSEnabled     bool          `json:"tls_enabled"`
-	CertFile       string        `json:"cert_file"`
-	KeyFile        string        `json:"key_file"`
-	CORSEnabled    bool          `json:"cors_enabled"`
-	CORSOrigins    []string      `json:"cors_origins"`
 	Timezone       string        `json:"timezone"`
 }
 
 // LoggingConfig holds logging configuration
 type LoggingConfig struct {
-	Level           string `json:"level"`
-	OutputFile      string `json:"output_file"`
-	ErrorFile       string `json:"error_file"`
-	MaxFileSize     int    `json:"max_file_size_mb"`
-	MaxBackups      int    `json:"max_backups"`
-	MaxAge          int    `json:"max_age_days"`
-	Compress        bool   `json:"compress"`
-	StructuredLogs  bool   `json:"structured_logs"`
-	ConsoleOutput   bool   `json:"console_output"`
-	ColorOutput     bool   `json:"color_output"`
+	Level string `json:"level"`
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Type             string        `json:"type"`
-	DataDirectory    string        `json:"data_directory"`
-	BackupDirectory  string        `json:"backup_directory"`
-	BackupInterval   time.Duration `json:"backup_interval"`
-	RetentionDays    int           `json:"retention_days"`
-	SyncInterval     time.Duration `json:"sync_interval"`
-	PermissionMode   os.FileMode   `json:"permission_mode"`
-}
-
-// APIConfig holds API configuration
-type APIConfig struct {
-	RateLimitEnabled bool          `json:"rate_limit_enabled"`
-	RateLimitRPS     int           `json:"rate_limit_rps"`
-	RequestTimeout   time.Duration `json:"request_timeout"`
-	MaxRequestSize   int64         `json:"max_request_size_bytes"`
-	EnableMetrics    bool          `json:"enable_metrics"`
-	MetricsPath      string        `json:"metrics_path"`
-}
-
-// WebSocketConfig holds WebSocket configuration
-type WebSocketConfig struct {
-	Enabled         bool          `json:"enabled"`
-	ReadBufferSize  int           `json:"read_buffer_size"`
-	WriteBufferSize int           `json:"write_buffer_size"`
-	HandshakeTimeout time.Duration `json:"handshake_timeout"`
-	PingInterval    time.Duration `json:"ping_interval"`
-	PongWait        time.Duration `json:"pong_wait"`
-	MaxConnections  int           `json:"max_connections"`
-}
-
-// ZigbeeConfig holds Zigbee/MQTT configuration
-type ZigbeeConfig struct {
-	Enabled           bool   `json:"enabled"`
-	MQTTBroker        string `json:"mqtt_broker"`
-	MQTTPort          int    `json:"mqtt_port"`
-	MQTTUser          string `json:"mqtt_user"`
-	MQTTPassword      string `json:"mqtt_password"`
-	BaseTopic         string `json:"base_topic"`
-	DeviceTopic       string `json:"device_topic"`
-	StatusTopic       string `json:"status_topic"`
-	CommandTopic      string `json:"command_topic"`
-	UseExternalBroker bool   `json:"use_external_broker"`
-	InternalMQTTPort  int    `json:"internal_mqtt_port"`
+	DataDirectory string `json:"data_directory"`
 }
 
 // VoiceConfig holds voice recognition configuration
@@ -137,13 +61,7 @@ type WeatherConfig struct {
 
 // DebugConfig holds debug and development settings
 type DebugConfig struct {
-	Enabled                bool `json:"enabled"`
-	ShowInternalErrors     bool `json:"show_internal_errors"`
-	EnableProfiling        bool `json:"enable_profiling"`
-	ProfilingPort          int  `json:"profiling_port"`
-	EnableDebugEndpoints   bool `json:"enable_debug_endpoints"`
-	LogStackTraces         bool `json:"log_stack_traces"`
-	DetailedErrorResponses bool `json:"detailed_error_responses"`
+	Enabled bool `json:"enabled"`
 }
 
 // Global configuration instance
@@ -210,63 +128,13 @@ func getDefaultConfig() *Config {
 			WriteTimeout:   15 * time.Second,
 			IdleTimeout:    60 * time.Second,
 			MaxHeaderBytes: 1 << 20, // 1MB
-			TLSEnabled:     false,
-			CertFile:       "",
-			KeyFile:        "",
-			CORSEnabled:    true,
-			CORSOrigins:    []string{"*"},
 			Timezone:       timezone,
 		},
 		Logging: LoggingConfig{
-			Level:          "INFO",
-			OutputFile:     "./sumika.log",
-			ErrorFile:      "./sumika.error.log",
-			MaxFileSize:    15,
-			MaxBackups:     2,
-			MaxAge:         16,
-			Compress:       true,
-			StructuredLogs: true,
-			ConsoleOutput:  true,
-			ColorOutput:    true,
+			Level: "INFO",
 		},
 		Database: DatabaseConfig{
-			Type:            "json_file",
-			DataDirectory:   "./build-data",
-			BackupDirectory: "./backups",
-			BackupInterval:  24 * time.Hour,
-			RetentionDays:   30,
-			SyncInterval:    5 * time.Minute,
-			PermissionMode:  0644,
-		},
-		API: APIConfig{
-			RateLimitEnabled: false,
-			RateLimitRPS:     100,
-			RequestTimeout:   30 * time.Second,
-			MaxRequestSize:   10 << 20, // 10MB
-			EnableMetrics:    false,
-			MetricsPath:      "/metrics",
-		},
-		WebSocket: WebSocketConfig{
-			Enabled:         true,
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-			HandshakeTimeout: 10 * time.Second,
-			PingInterval:    54 * time.Second,
-			PongWait:        60 * time.Second,
-			MaxConnections:  100,
-		},
-		Zigbee: ZigbeeConfig{
-			Enabled:           true,
-			MQTTBroker:        "localhost",
-			MQTTPort:          1883,
-			MQTTUser:          "",
-			MQTTPassword:      "",
-			BaseTopic:         "zigbee2mqtt",
-			DeviceTopic:       "zigbee2mqtt/devices",
-			StatusTopic:       "zigbee2mqtt/bridge/state",
-			CommandTopic:      "zigbee2mqtt/bridge/request",
-			UseExternalBroker: false,
-			InternalMQTTPort:  1882,
+			DataDirectory: "./build-data",
 		},
 		Voice: VoiceConfig{
 			Enabled:       true,
@@ -284,13 +152,7 @@ func getDefaultConfig() *Config {
 			Location:  "",
 		},
 		Debug: DebugConfig{
-			Enabled:                false,
-			ShowInternalErrors:     false,
-			EnableProfiling:        false,
-			ProfilingPort:          6060,
-			EnableDebugEndpoints:   false,
-			LogStackTraces:         false,
-			DetailedErrorResponses: false,
+			Enabled: false,
 		},
 	}
 }
@@ -320,9 +182,6 @@ func loadFromEnvironment(config *Config) {
 			config.Server.Port = p
 		}
 	}
-	if cors := os.Getenv("SUMIKA_CORS_ENABLED"); cors != "" {
-		config.Server.CORSEnabled = cors == "true"
-	}
 	if timezone := os.Getenv("SUMIKA_TIMEZONE"); timezone != "" {
 		config.Server.Timezone = timezone
 	}
@@ -331,43 +190,10 @@ func loadFromEnvironment(config *Config) {
 	if level := os.Getenv("SUMIKA_LOG_LEVEL"); level != "" {
 		config.Logging.Level = level
 	}
-	if file := os.Getenv("SUMIKA_LOG_FILE"); file != "" {
-		config.Logging.OutputFile = file
-	}
-	if structured := os.Getenv("SUMIKA_STRUCTURED_LOGS"); structured != "" {
-		config.Logging.StructuredLogs = structured == "true"
-	}
 
 	// Database configuration
 	if dataDir := os.Getenv("SUMIKA_DATA_DIR"); dataDir != "" {
 		config.Database.DataDirectory = dataDir
-	}
-	if backupDir := os.Getenv("SUMIKA_BACKUP_DIR"); backupDir != "" {
-		config.Database.BackupDirectory = backupDir
-	}
-
-	// Zigbee configuration
-	if broker := os.Getenv("SUMIKA_MQTT_BROKER"); broker != "" {
-		config.Zigbee.MQTTBroker = broker
-	}
-	if port := os.Getenv("SUMIKA_MQTT_PORT"); port != "" {
-		if p, err := strconv.Atoi(port); err == nil {
-			config.Zigbee.MQTTPort = p
-		}
-	}
-	if user := os.Getenv("SUMIKA_MQTT_USER"); user != "" {
-		config.Zigbee.MQTTUser = user
-	}
-	if password := os.Getenv("SUMIKA_MQTT_PASSWORD"); password != "" {
-		config.Zigbee.MQTTPassword = password
-	}
-	if useExternal := os.Getenv("SUMIKA_USE_EXTERNAL_MQTT"); useExternal != "" {
-		config.Zigbee.UseExternalBroker = useExternal == "true"
-	}
-	if internalPort := os.Getenv("SUMIKA_INTERNAL_MQTT_PORT"); internalPort != "" {
-		if p, err := strconv.Atoi(internalPort); err == nil {
-			config.Zigbee.InternalMQTTPort = p
-		}
 	}
 
 	// Voice configuration
@@ -417,9 +243,6 @@ func loadFromEnvironment(config *Config) {
 	if debug := os.Getenv("SUMIKA_DEBUG"); debug != "" {
 		config.Debug.Enabled = debug == "true"
 	}
-	if showErrors := os.Getenv("SUMIKA_SHOW_INTERNAL_ERRORS"); showErrors != "" {
-		config.Debug.ShowInternalErrors = showErrors == "true"
-	}
 }
 
 // validateConfig validates the configuration
@@ -445,11 +268,6 @@ func validateConfig(config *Config) error {
 	// Validate data directory
 	if err := ensureDirectory(config.Database.DataDirectory); err != nil {
 		return fmt.Errorf("invalid data directory: %w", err)
-	}
-
-	// Validate backup directory
-	if err := ensureDirectory(config.Database.BackupDirectory); err != nil {
-		return fmt.Errorf("invalid backup directory: %w", err)
 	}
 
 	return nil
@@ -487,12 +305,6 @@ func SaveConfig(config *Config, filePath string) error {
 func GetDataPath(filename string) string {
 	config := GetConfig()
 	return filepath.Join(config.Database.DataDirectory, filename)
-}
-
-// GetBackupPath returns the absolute path for backup files
-func GetBackupPath(filename string) string {
-	config := GetConfig()
-	return filepath.Join(config.Database.BackupDirectory, filename)
 }
 
 // IsDevelopment returns true if running in development mode

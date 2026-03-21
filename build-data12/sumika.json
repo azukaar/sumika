@@ -1,0 +1,93 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8081,
+    "read_timeout": 15000000000,
+    "write_timeout": 15000000000,
+    "idle_timeout": 60000000000,
+    "max_header_bytes": 1048576,
+    "tls_enabled": false,
+    "cert_file": "",
+    "key_file": "",
+    "cors_enabled": true,
+    "cors_origins": [
+      "*"
+    ],
+    "timezone": "UTC"
+  },
+  "logging": {
+    "level": "INFO",
+    "output_file": "./sumika.log",
+    "error_file": "./sumika.error.log",
+    "max_file_size_mb": 15,
+    "max_backups": 2,
+    "max_age_days": 16,
+    "compress": true,
+    "structured_logs": true,
+    "console_output": true,
+    "color_output": true
+  },
+  "database": {
+    "type": "json_file",
+    "data_directory": "./build-data",
+    "backup_directory": "./backups",
+    "backup_interval": 86400000000000,
+    "retention_days": 30,
+    "sync_interval": 300000000000,
+    "permission_mode": 420
+  },
+  "api": {
+    "rate_limit_enabled": false,
+    "rate_limit_rps": 100,
+    "request_timeout": 30000000000,
+    "max_request_size_bytes": 10485760,
+    "enable_metrics": false,
+    "metrics_path": "/metrics"
+  },
+  "websocket": {
+    "enabled": true,
+    "read_buffer_size": 1024,
+    "write_buffer_size": 1024,
+    "handshake_timeout": 10000000000,
+    "ping_interval": 54000000000,
+    "pong_wait": 60000000000,
+    "max_connections": 100
+  },
+  "zigbee": {
+    "enabled": true,
+    "mqtt_broker": "localhost",
+    "mqtt_port": 1883,
+    "mqtt_user": "",
+    "mqtt_password": "",
+    "base_topic": "zigbee2mqtt",
+    "device_topic": "zigbee2mqtt/devices",
+    "status_topic": "zigbee2mqtt/bridge/state",
+    "command_topic": "zigbee2mqtt/bridge/request",
+    "use_external_broker": false,
+    "internal_mqtt_port": 1882
+  },
+  "voice": {
+    "enabled": true,
+    "whisper_model": "base",
+    "whisper_device": "cpu",
+    "compute_type": "int8",
+    "input_device": "default",
+    "output_device": "default",
+    "wake_threshold": 0.5
+  },
+  "weather": {
+    "enabled": false,
+    "latitude": 0,
+    "longitude": 0,
+    "location": ""
+  },
+  "debug": {
+    "enabled": false,
+    "show_internal_errors": false,
+    "enable_profiling": false,
+    "profiling_port": 6060,
+    "enable_debug_endpoints": false,
+    "log_stack_traces": false,
+    "detailed_error_responses": false
+  }
+}

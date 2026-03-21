@@ -39,12 +39,10 @@ class _NumericControlState extends ConsumerState<NumericControl> {
 
   @override
   Widget build(BuildContext context) {
-    final devicesState = ref.watch(devicesProvider);
     final deviceSpecs = ref.watch(deviceSpecsProvider(widget.device.ieeeAddress));
 
     final prop = widget.expose['property'] as String;
     final access = widget.expose['access'];
-    final name = widget.expose['name'];
     final label = widget.expose['label'];
     var value = _value;
     
@@ -89,18 +87,14 @@ class _NumericControlState extends ConsumerState<NumericControl> {
     } else {
       final minValue = (widget.expose['value_min'] ?? 0).toDouble();
       final maxValue = (widget.expose['value_max'] ?? 100).toDouble();
-      final speadValue = maxValue - minValue;
-
       if (value < minValue) {
         value = minValue;
       } else if (value > maxValue) {
         value = maxValue;
       }
 
-      return getSlider(widget.expose, value, hideIcons: widget.hideIcons, hideLabel: widget.hideLabel, 
+      return getSlider(widget.expose, value, hideIcons: widget.hideIcons, hideLabel: widget.hideLabel,
           enhancedUnit: enhancedUnit, enhancedDescription: enhancedDescription, onChanged: (double newValue) {
-        // var newValue = _newValue * speadValue + minValue;
-
         // state in json
         var jsonState = {
           prop: newValue,

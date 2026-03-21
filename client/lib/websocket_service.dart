@@ -4,7 +4,6 @@ import 'dart:developer' as developer;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import './types.dart';
 import 'api_config.dart';
 
 /// Connection states for the WebSocket

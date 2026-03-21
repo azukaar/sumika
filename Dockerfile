@@ -112,13 +112,13 @@ USER appuser
 WORKDIR /app
 
 # Copy the compiled Go binary from the builder stage
-COPY --from=go_builder /app/sumika-server /app/
+COPY --chown=appuser --from=go_builder /app/sumika-server /app/
 
 # Copy the Flutter web build to the static directory
-COPY --from=flutter_builder /app/client/build/web /app/web
+COPY --chown=appuser --from=flutter_builder /app/client/build/web /app/web
 
 # Copy server assets (scene images, voice assets, etc.) from the Go builder stage
-COPY --from=go_builder /app/server/assets /app/assets
+COPY --chown=appuser --from=go_builder /app/server/assets /app/assets
 
 # Run /app/assets/voice/preload.py
 RUN python /app/assets/voice/preload.py

@@ -1,7 +1,6 @@
 package MQTT
 
 import (
-  "log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,9 +12,11 @@ import (
   "github.com/mochi-mqtt/server/v2/hooks/auth"
   "github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
-	
+
 	// External MQTT client
 	paho "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/azukaar/sumika/server/utils"
 )
 
 var MQQTServer *mqtt.Server
@@ -27,12 +28,12 @@ func Init(cb func()) {
   externalBroker := os.Getenv("EXTERNAL_MQTT_BROKER")
   
   if externalBroker != "" {
-    log.Printf("Using external MQTT broker: %s", externalBroker)
+    utils.Log(fmt.Sprintf("Using external MQTT broker: %s", externalBroker))
     initExternalBroker(externalBroker, cb)
     return
   }
-  
-  log.Println("Starting embedded MQTT server")
+
+  utils.Log("Starting embedded MQTT server")
   initEmbeddedBroker(cb)
 }
 
@@ -60,14 +61,14 @@ func initEmbeddedBroker(cb func()) {
   tcp := listeners.NewTCP(listeners.Config{ID: "t1", Address: ":1883"})
   err := MQQTServer.AddListener(tcp)
   if err != nil {
-    log.Fatal(err)
+    utils.Fatal("Failed to add MQTT listener", err)
   }
   
 
   go func() {
     err := MQQTServer.Serve()
     if err != nil {
-      log.Fatal(err)
+      utils.Fatal("Failed to serve MQTT", err)
     }
   }()
 
@@ -83,10 +84,10 @@ func initEmbeddedBroker(cb func()) {
   // Cleanup
   err = MQQTServer.Close()
   if err != nil {
-    log.Fatal(err)
+    utils.Fatal("Failed to close MQTT server", err)
   }
 
-  log.Println("MQTT server stopped")
+  utils.Log("MQTT server stopped")
 }
 
 func initExternalBroker(brokerURL string, cb func()) {
@@ -109,10 +110,10 @@ func initExternalBroker(brokerURL string, cb func()) {
   // Create and start the client
   ExternalClient = paho.NewClient(opts)
   if token := ExternalClient.Connect(); token.Wait() && token.Error() != nil {
-    log.Fatalf("Failed to connect to external MQTT broker: %v", token.Error())
+    utils.Fatal("Failed to connect to external MQTT broker", token.Error())
   }
-  
-  log.Println("Connected to external MQTT broker")
+
+  utils.Log("Connected to external MQTT broker")
   
   // Setup graceful shutdown
   sigs := make(chan os.Signal, 1)
@@ -133,7 +134,7 @@ func initExternalBroker(brokerURL string, cb func()) {
   
   // Cleanup
   ExternalClient.Disconnect(250)
-  log.Println("MQTT client disconnected")
+  utils.Log("MQTT client disconnected")
 }
 
 var ListenersCache = make(map[string]func(topic string, payload []byte))
@@ -142,9 +143,9 @@ func ListenAll() {
   if IsExternalBroker {
     // Subscribe to topics on external broker
     if token := ExternalClient.Subscribe("zb2m-sumika/#", 0, externalMessageHandler); token.Wait() && token.Error() != nil {
-      log.Printf("Failed to subscribe to zb2m-sumika/#: %v", token.Error())
+      utils.Error(fmt.Sprintf("Failed to subscribe to zb2m-sumika/#: %v", token.Error()), token.Error())
     } else {
-      log.Println("Subscribed to zb2m-sumika/# on external broker")
+      utils.Log("Subscribed to zb2m-sumika/# on external broker")
     }
   } else {
     // on message for embedded broker
@@ -200,7 +201,7 @@ func Publish(topic string, payload []byte) {
     token := ExternalClient.Publish(topic, 2, true, payload)
     go func() {
       if token.Wait() && token.Error() != nil {
-        log.Printf("Failed to publish to %s: %v", topic, token.Error())
+        utils.Error(fmt.Sprintf("Failed to publish to %s", topic), token.Error())
       }
     }()
   } else {
@@ -216,7 +217,7 @@ func Subscribe(topic string, cb func(topic string, payload []byte)) {
   // If using external broker, subscribe to the topic
   if IsExternalBroker {
     if token := ExternalClient.Subscribe(topic, 0, externalMessageHandler); token.Wait() && token.Error() != nil {
-      log.Printf("Failed to subscribe to %s: %v", topic, token.Error())
+      utils.Error(fmt.Sprintf("Failed to subscribe to %s", topic), token.Error())
     }
   }
 }

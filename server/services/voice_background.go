@@ -7,7 +7,6 @@ import (
     "errors"
     "fmt"
     "io"
-    "log"
     "os"
     "os/exec"
     "path/filepath"
@@ -88,7 +87,7 @@ func getExecutableDir() (string, error) {
 func buildPath(relativePath string) string {
     execDir, err := getExecutableDir()
     if err != nil {
-        log.Printf("⚠️  Failed to get executable directory, using relative path: %v", err)
+        utils.Warn(fmt.Sprintf("Failed to get executable directory, using relative path: %v", err))
         return relativePath
     }
     return filepath.Join(execDir, relativePath)
@@ -101,7 +100,7 @@ func buildAssetPath(filename string) string {
 
 // ListAudioInputDevices enumerates and displays all available audio input devices
 func ListAudioInputDevices() error {
-    log.Printf("🎙️  Enumerating available audio input devices...")
+    utils.Debug("Enumerating available audio input devices...")
     
     ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
         // Silent callback for device enumeration
@@ -120,22 +119,21 @@ func ListAudioInputDevices() error {
     }
 
     if len(devices) == 0 {
-        log.Printf("❌ No audio input devices found")
+        utils.Warn("No audio input devices found")
         return nil
     }
 
-    log.Printf("📋 Found %d audio input device(s):", len(devices))
+    utils.Debug(fmt.Sprintf("Found %d audio input device(s)", len(devices)))
     for i, device := range devices {
         info, err := ctx.DeviceInfo(malgo.Capture, device.ID, malgo.Shared)
         if err != nil {
-            log.Printf("   [%d] %s (ID: %v) - Error getting info: %v", i, device.Name(), device.ID, err)
+            utils.Debug(fmt.Sprintf("[%d] %s (ID: %v) - Error getting info: %v", i, device.Name(), device.ID, err))
             continue
         }
-        
-        log.Printf("   [%d] %s", i, device.Name())
-        // log.Printf("       ID: %v", device.ID)
+
+        utils.Debug(fmt.Sprintf("[%d] %s", i, device.Name()))
         if info.IsDefault == 1 {
-            log.Printf("       ⭐ Default device")
+            utils.Debug(fmt.Sprintf("    Default device: %s", device.Name()))
         }
     }
     
@@ -163,7 +161,7 @@ func PlayWAVFile(filename string) error {
     sampleRate := binary.LittleEndian.Uint32(header[24:28])
     bitsPerSample := binary.LittleEndian.Uint16(header[34:36])
     
-    log.Printf("🎵 WAV file format: %d Hz, %d channels, %d-bit", sampleRate, numChannels, bitsPerSample)
+    utils.Debug(fmt.Sprintf("WAV file format: %d Hz, %d channels, %d-bit", sampleRate, numChannels, bitsPerSample))
 
     // Read audio data
     audioData, err := io.ReadAll(file)
@@ -193,12 +191,12 @@ func PlayWAVFile(filename string) error {
     // Get voice config and set specific output device if configured
     cfg := config.GetConfig()
     if cfg.Voice.OutputDevice != "default" && cfg.Voice.OutputDevice != "" {
-        log.Printf("Using configured output device: %s", cfg.Voice.OutputDevice)
+        utils.Debug(fmt.Sprintf("Using configured output device: %s", cfg.Voice.OutputDevice))
         if deviceInfo, err := findAudioDevice(ctx, cfg.Voice.OutputDevice, malgo.Playback); err == nil {
             deviceConfig.Playback.DeviceID = deviceInfo.ID.Pointer()
-            log.Printf("✅ Found and configured output device: %s", deviceInfo.Name())
+            utils.Debug(fmt.Sprintf("Found and configured output device: %s", deviceInfo.Name()))
         } else {
-            log.Printf("⚠️  Failed to find output device '%s', using default", cfg.Voice.OutputDevice, err)
+            utils.Warn(fmt.Sprintf("Failed to find output device '%s', using default: %v", cfg.Voice.OutputDevice, err))
         }
     }
     
@@ -215,7 +213,7 @@ func PlayWAVFile(filename string) error {
     case 32:
         deviceConfig.Playback.Format = malgo.FormatS32
     default:
-        log.Printf("⚠️  Unsupported bit depth %d, using S16", bitsPerSample)
+        utils.Warn(fmt.Sprintf("Unsupported bit depth %d, using S16", bitsPerSample))
         deviceConfig.Playback.Format = malgo.FormatS16
     }
 
@@ -279,7 +277,7 @@ func PlayAudioFile(filename string) {
     go func() {
         fullPath := buildAssetPath(filename)
         if err := PlayWAVFile(fullPath); err != nil {
-            log.Printf("🔊 Failed to play %s: %v", filename, err)
+            utils.Warn(fmt.Sprintf("Failed to play %s: %v", filename, err))
         }
     }()
 }
@@ -387,35 +385,33 @@ func (vr *VoiceRunner) run() {
         
         // Recover from any panic to prevent crashing
         if r := recover(); r != nil {
-            log.Printf("⚠️  Voice recognition panicked: %v", r)
+            utils.Warn(fmt.Sprintf("Voice recognition panicked: %v", r))
         }
     }()
 
-    log.Printf("🚀 OpenWake Voice Assistant")
-    log.Printf("   Whisper Model: %s", vr.config.WhisperModel)
-    log.Printf("   Whisper Device: %s", vr.config.WhisperDevice)  
-    log.Printf("   Compute Type: %s", vr.config.ComputeType)
-    log.Printf("   Wake Threshold: %.2f", vr.config.WakeThreshold)
-    
+    utils.Log("OpenWake Voice Assistant starting")
+    utils.Debug(fmt.Sprintf("Whisper Model: %s", vr.config.WhisperModel))
+    utils.Debug(fmt.Sprintf("Whisper Device: %s", vr.config.WhisperDevice))
+    utils.Debug(fmt.Sprintf("Compute Type: %s", vr.config.ComputeType))
+    utils.Debug(fmt.Sprintf("Wake Threshold: %.2f", vr.config.WakeThreshold))
+
     // Log the executable directory for debugging
     if execDir, err := getExecutableDir(); err == nil {
-        log.Printf("   Executable Dir: %s", execDir)
-        log.Printf("   Assets Dir: %s", filepath.Join(execDir, "assets", "voice"))
+        utils.Debug(fmt.Sprintf("Executable Dir: %s", execDir))
+        utils.Debug(fmt.Sprintf("Assets Dir: %s", filepath.Join(execDir, "assets", "voice")))
     }
-    log.Printf("")
 
     // List available audio input devices
     if err := ListAudioInputDevices(); err != nil {
-        log.Printf("⚠️  Failed to enumerate audio devices: %v", err)
+        utils.Warn(fmt.Sprintf("Failed to enumerate audio devices: %v", err))
     }
-    log.Printf("") // Empty line for better readability
 
     // Prepare audio file (relative to executable)
     outPath := buildPath("audio.wav")
     f, err := os.Create(outPath)
     if err != nil {
-        log.Printf("⚠️  Failed to create audio file: %v", err)
-        log.Printf("⚠️  Voice recognition disabled - cannot create audio file")
+        utils.Warn(fmt.Sprintf("Failed to create audio file: %v", err))
+        utils.Warn("Voice recognition disabled - cannot create audio file")
         if vr.callbacks.OnError != nil {
             vr.callbacks.OnError(fmt.Sprintf("Failed to create audio file: %v", err), 0.0)
         }
@@ -425,8 +421,8 @@ func (vr *VoiceRunner) run() {
 
     // Placeholder header (dataLen = 0); we update on exit
     if err := writeWavHeader(f, 0); err != nil {
-        log.Printf("⚠️  Failed to write WAV header: %v", err)
-        log.Printf("⚠️  Voice recognition disabled - cannot write audio header")
+        utils.Warn(fmt.Sprintf("Failed to write WAV header: %v", err))
+        utils.Warn("Voice recognition disabled - cannot write audio header")
         if vr.callbacks.OnError != nil {
             vr.callbacks.OnError(fmt.Sprintf("Failed to write WAV header: %v", err), 0.0)
         }
@@ -440,36 +436,36 @@ func (vr *VoiceRunner) run() {
     var fileMutex sync.RWMutex
 
     processIntent := func(transcription string) *types.IntentResult {
-        log.Printf("🤖 Processing intent for: \"%s\"", transcription)
-        
+        utils.Debug(fmt.Sprintf("Processing intent for: \"%s\"", transcription))
+
         // Use Python script from assets/voice directory
         intentScript := buildAssetPath("intent.py")
         cmd := exec.Command("python3", intentScript, transcription)
         output, err := cmd.Output()
         if err != nil {
-            log.Printf("❌ Intent processing failed: %v", err)
+            utils.Warn(fmt.Sprintf("Intent processing failed: %v", err))
             return nil
         }
-        
+
         var result types.IntentResult
         if err := utils.ParseScriptOutput(output, &result); err != nil {
-            log.Printf("❌ Failed to parse intent result: %v", err)
-            log.Printf("Raw intent.py output: %q", string(output))
-            log.Printf("Output length: %d bytes", len(output))
+            utils.Warn(fmt.Sprintf("Failed to parse intent result: %v", err))
+            utils.Debug(fmt.Sprintf("Raw intent.py output: %q", string(output)))
+            utils.Debug(fmt.Sprintf("Output length: %d bytes", len(output)))
             return nil
         }
-        
+
         return &result
     }
 
     restartPythonReader := func() {
         if py == nil || pyStdin == nil {
-            log.Printf("Python not running, cannot restart reader")
+            utils.Debug("Python not running, cannot restart reader")
             return
         }
         _, err := pyStdin.WriteString("RESTART\n")
         if err != nil {
-            log.Printf("Failed to send restart signal: %v", err)
+            utils.Warn(fmt.Sprintf("Failed to send restart signal: %v", err))
         }
         if err := pyStdin.Sync(); err != nil {
         }
@@ -478,16 +474,16 @@ func (vr *VoiceRunner) run() {
     resetFile := func() {
         fileMutex.Lock()
         defer fileMutex.Unlock()
-        
+
         _ = f.Close()
-        
+
         f, err = os.Create(outPath)
         if err != nil {
-            log.Printf("reset file error: %v", err)
+            utils.Warn(fmt.Sprintf("reset file error: %v", err))
             return
         }
         if err := writeWavHeader(f, 0); err != nil {
-            log.Printf("reset header error: %v", err)
+            utils.Warn(fmt.Sprintf("reset header error: %v", err))
             return
         }
         totalBytes = 0
@@ -509,29 +505,29 @@ func (vr *VoiceRunner) run() {
         py.Stderr = os.Stderr
 
         if os.Getenv("DEBUG_PYTHON") != "" {
-            log.Printf("🔊 Starting Python listener with args: %v", py.Args)
+            utils.Debug(fmt.Sprintf("Starting Python listener with args: %v", py.Args))
         }
 
         // Create pipes for stdin and stdout
         stdin, err := py.StdinPipe()
         if err != nil {
-            log.Printf("stdin pipe error: %v", err)
+            utils.Warn(fmt.Sprintf("stdin pipe error: %v", err))
             return
         }
         pyStdin = stdin.(*os.File)
-        
+
         stdout, err := py.StdoutPipe()
         if err != nil {
-            log.Printf("stdout pipe error: %v", err)
+            utils.Warn(fmt.Sprintf("stdout pipe error: %v", err))
             return
         }
-        
+
         if err := py.Start(); err != nil {
-            log.Printf("start python error: %v", err)
+            utils.Warn(fmt.Sprintf("start python error: %v", err))
             return
         }
-        
-        log.Printf("Python listener started, pid=%d", py.Process.Pid)
+
+        utils.Debug(fmt.Sprintf("Python listener started, pid=%d", py.Process.Pid))
         
         // Monitor Python stdout in a goroutine
         go func() {
@@ -541,39 +537,39 @@ func (vr *VoiceRunner) run() {
                 var event PythonEvent
                 if err := json.Unmarshal([]byte(line), &event); err != nil {
                     if os.Getenv("DEBUG_PYTHON") != "" {
-                        log.Printf("🔊 AUDIO DEBUG: %s", event)
+                        utils.Debug(fmt.Sprintf("AUDIO DEBUG: %s", event))
                     }
                     continue
                 }
-                
+
                 switch event.Type {
                 case "wakeword":
-                    log.Printf("🎯 WAKE WORD DETECTED: %s (score: %.3f)", event.Label, event.Score)
+                    utils.Debug(fmt.Sprintf("WAKE WORD DETECTED: %s (score: %.3f)", event.Label, event.Score))
                     PlayAudioFile("request-arnav-geddada.wav")
                     if vr.callbacks.OnWakeWordDetected != nil {
                         vr.callbacks.OnWakeWordDetected(event.Label, event.Score)
                     }
                 case "listening_start":
                     if event.Message != "" {
-                        log.Printf("👂 %s", event.Message)
+                        utils.Debug(event.Message)
                     } else {
-                        log.Printf("👂 Started listening for speech...")
+                        utils.Debug("Started listening for speech...")
                     }
                 case "audio_debug":
                     if os.Getenv("DEBUG_PYTHON") != "" {
-                        log.Printf("🔊 AUDIO DEBUG: %s", event.Message)
+                        utils.Debug(fmt.Sprintf("AUDIO DEBUG: %s", event.Message))
                     }
                 case "silence_detected":
                     PlayAudioFile("processing-soundreality.wav")
-                    log.Printf("🔇 %s", event.Message)
+                    utils.Debug(event.Message)
                 case "max_buffer_reached":
-                    log.Printf("📦 %s", event.Message)
+                    utils.Debug(event.Message)
                 case "transcription":
                     if event.AudioDuration > 0 && event.ProcessingTime > 0 {
-                        log.Printf("💬 TRANSCRIPTION (%.2fs audio, %.3fs processing): \"%s\"", 
-                            event.AudioDuration, event.ProcessingTime, event.Text)
+                        utils.Debug(fmt.Sprintf("TRANSCRIPTION (%.2fs audio, %.3fs processing): \"%s\"",
+                            event.AudioDuration, event.ProcessingTime, event.Text))
                     } else {
-                        log.Printf("💬 TRANSCRIPTION: \"%s\"", event.Text)
+                        utils.Debug(fmt.Sprintf("TRANSCRIPTION: \"%s\"", event.Text))
                     }
                     
                     // Call transcription callback
@@ -585,45 +581,45 @@ func (vr *VoiceRunner) run() {
                         intentResult := processIntent(event.Text)
                         if intentResult != nil {
                             if intentResult.Success {
-                                log.Printf("🎯 SUCCESS: Processed %d device commands", len(intentResult.Commands))
+                                utils.Debug(fmt.Sprintf("SUCCESS: Processed %d device commands", len(intentResult.Commands)))
                                 for i, cmd := range intentResult.Commands {
-                                    log.Printf("📋 COMMAND %d: %s (%s) -> %s = %v", 
-                                        i+1, cmd.CustomName, cmd.IEEEAddress, cmd.Property, cmd.Value)
+                                    utils.Debug(fmt.Sprintf("COMMAND %d: %s (%s) -> %s = %v",
+                                        i+1, cmd.CustomName, cmd.IEEEAddress, cmd.Property, cmd.Value))
                                 }
-                                
+
                                 // Call intent callback
                                 if vr.callbacks.OnIntent != nil {
                                     vr.callbacks.OnIntent(event.Text, intentResult)
                                 }
                             } else {
-                                log.Printf("❓ Intent processing failed: %s", intentResult.Error)
+                                utils.Warn(fmt.Sprintf("Intent processing failed: %s", intentResult.Error))
                             }
                         }
                     }
-                    
+
                     PlayAudioFile("done-arnav-geddada.wav")
-                    
-                    log.Printf("🔄 Resetting audio file after transcription...")
+
+                    utils.Debug("Resetting audio file after transcription...")
                     resetFile()
                 case "error":
                     if event.ProcessingTime > 0 {
-                        log.Printf("❌ Error (%.3fs processing): %s", event.ProcessingTime, event.Message)
+                        utils.Warn(fmt.Sprintf("Error (%.3fs processing): %s", event.ProcessingTime, event.Message))
                     } else {
-                        log.Printf("❌ Error: %s", event.Message)
+                        utils.Warn(fmt.Sprintf("Error: %s", event.Message))
                     }
-                    
+
                     // Call error callback
                     if vr.callbacks.OnError != nil {
                         vr.callbacks.OnError(event.Message, event.ProcessingTime)
                     }
                 case "info":
-                    log.Printf("ℹ️  %s", event.Message)
+                    utils.Debug(event.Message)
                 default:
-                    log.Printf("Unknown event type: %s", event.Type)
+                    utils.Debug(fmt.Sprintf("Unknown event type: %s", event.Type))
                 }
             }
             if err := scanner.Err(); err != nil {
-                log.Printf("Python stdout scanner error: %v", err)
+                utils.Warn(fmt.Sprintf("Python stdout scanner error: %v", err))
             }
         }()
     }
@@ -639,11 +635,11 @@ func (vr *VoiceRunner) run() {
     }()
 
     ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-        log.Printf("[malgo] %s", message)
+        utils.Debug(fmt.Sprintf("[malgo] %s", message))
     })
     if err != nil {
-        log.Printf("⚠️  Failed to initialize audio context: %v", err)
-        log.Printf("⚠️  Voice recognition disabled - no audio device available")
+        utils.Warn(fmt.Sprintf("Failed to initialize audio context: %v", err))
+        utils.Warn("Voice recognition disabled - no audio device available")
         if vr.callbacks.OnError != nil {
             vr.callbacks.OnError(fmt.Sprintf("Audio initialization failed: %v", err), 0.0)
         }
@@ -662,12 +658,12 @@ func (vr *VoiceRunner) run() {
     
     // Set specific input device if configured
     if vr.config.InputDevice != "default" && vr.config.InputDevice != "" {
-        log.Printf("Using configured input device: %s", vr.config.InputDevice)
+        utils.Debug(fmt.Sprintf("Using configured input device: %s", vr.config.InputDevice))
         if deviceInfo, err := findAudioDevice(ctx, vr.config.InputDevice, malgo.Capture); err == nil {
             deviceConfig.Capture.DeviceID = deviceInfo.ID.Pointer()
-            log.Printf("✅ Found and configured input device: %s", deviceInfo.Name())
+            utils.Debug(fmt.Sprintf("Found and configured input device: %s", deviceInfo.Name()))
         } else {
-            log.Printf("⚠️  Failed to find input device '%s': %v", vr.config.InputDevice, err)
+            utils.Warn(fmt.Sprintf("Failed to find input device '%s': %v", vr.config.InputDevice, err))
         }
     }
 
@@ -685,7 +681,7 @@ func (vr *VoiceRunner) run() {
         
         if _, err := f.Write(pInputSample); err != nil {
             if !errors.Is(err, os.ErrClosed) {
-                log.Printf("write error: %v", err)
+                utils.Warn(fmt.Sprintf("write error: %v", err))
             }
             return
         }
@@ -698,8 +694,8 @@ func (vr *VoiceRunner) run() {
 
     device, err := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
     if err != nil {
-        log.Printf("⚠️  Failed to initialize audio device: %v", err)
-        log.Printf("⚠️  Voice recognition disabled - no audio device available")
+        utils.Warn(fmt.Sprintf("Failed to initialize audio device: %v", err))
+        utils.Warn("Voice recognition disabled - no audio device available")
         if vr.callbacks.OnError != nil {
             vr.callbacks.OnError(fmt.Sprintf("Audio device initialization failed: %v", err), 0.0)
         }
@@ -708,8 +704,8 @@ func (vr *VoiceRunner) run() {
     defer device.Uninit()
 
     if err := device.Start(); err != nil {
-        log.Printf("⚠️  Failed to start audio device: %v", err)
-        log.Printf("⚠️  Voice recognition disabled - audio device start failed")
+        utils.Warn(fmt.Sprintf("Failed to start audio device: %v", err))
+        utils.Warn("Voice recognition disabled - audio device start failed")
         if vr.callbacks.OnError != nil {
             vr.callbacks.OnError(fmt.Sprintf("Audio device start failed: %v", err), 0.0)
         }
@@ -718,7 +714,7 @@ func (vr *VoiceRunner) run() {
 
     PlayAudioFile("processing-soundreality.wav")
 
-    log.Printf("Capturing @ %d Hz, %d ch, %d-bit… Voice recognition active.", sampleRate, channels, bitsPerSample)
+    utils.Log(fmt.Sprintf("Capturing @ %d Hz, %d ch, %d-bit - Voice recognition active.", sampleRate, channels, bitsPerSample))
 
     // Wait for stop signal
     <-vr.stopChan
@@ -727,7 +723,7 @@ func (vr *VoiceRunner) run() {
 
     if totalBytes > 0 {
         if err := writeWavHeader(f, uint32(totalBytes)); err != nil {
-            log.Printf("finalize header: %v", err)
+            utils.Warn(fmt.Sprintf("finalize header: %v", err))
         }
     }
 

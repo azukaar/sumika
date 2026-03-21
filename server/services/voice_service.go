@@ -3,13 +3,13 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/azukaar/sumika/server/config"
 	"github.com/azukaar/sumika/server/realtime"
 	"github.com/azukaar/sumika/server/types"
+	"github.com/azukaar/sumika/server/utils"
 	"github.com/gen2brain/malgo"
 )
 
@@ -91,16 +91,16 @@ func (vs *VoiceService) Start() error {
 	defer vs.mutex.Unlock()
 	
 	if !vs.config.Enabled {
-		log.Printf("Voice service disabled in configuration")
+		utils.Debug("Voice service disabled in configuration")
 		return nil
 	}
-	
+
 	if vs.runner != nil && vs.runner.IsRunning() {
-		log.Printf("Voice service already running")
+		utils.Debug("Voice service already running")
 		return nil
 	}
-	
-	log.Printf("Starting voice recognition service...")
+
+	utils.Log("Starting voice recognition service...")
 	
 	// Start the voice runner
 	if err := vs.runner.Start(); err != nil {
@@ -125,7 +125,7 @@ func (vs *VoiceService) Stop() error {
 		return nil
 	}
 	
-	log.Printf("Stopping voice recognition service...")
+	utils.Log("Stopping voice recognition service...")
 	
 	// Stop the voice runner
 	if err := vs.runner.Stop(); err != nil {
@@ -228,7 +228,7 @@ func (vs *VoiceService) getAudioDevices(input bool) ([]types.AudioDevice, error)
 
 // handleWakeWordDetected handles wake word detection events
 func (vs *VoiceService) handleWakeWordDetected(label string, score float64) {
-	log.Printf("Voice service: Wake word '%s' detected (score: %.3f)", label, score)
+	utils.Debug(fmt.Sprintf("Voice service: Wake word '%s' detected (score: %.3f)", label, score))
 	
 	// Send WebSocket event
 	realtime.BroadcastEvent("voice_wake_detected", map[string]interface{}{
@@ -240,8 +240,8 @@ func (vs *VoiceService) handleWakeWordDetected(label string, score float64) {
 
 // handleTranscription handles speech transcription events
 func (vs *VoiceService) handleTranscription(text string, duration, processingTime float64) {
-	log.Printf("Voice service: Transcription '%s' (%.2fs audio, %.3fs processing)", 
-		text, duration, processingTime)
+	utils.Debug(fmt.Sprintf("Voice service: Transcription '%s' (%.2fs audio, %.3fs processing)",
+		text, duration, processingTime))
 	
 	// Send WebSocket event
 	realtime.BroadcastEvent("voice_transcription", map[string]interface{}{
@@ -255,7 +255,7 @@ func (vs *VoiceService) handleTranscription(text string, duration, processingTim
 // handleIntent handles voice intent processing and device command execution
 func (vs *VoiceService) handleIntent(transcription string, intentResult *types.IntentResult) {
 	if !intentResult.Success {
-		log.Printf("Voice service: Intent processing failed for '%s': %s", transcription, intentResult.Error)
+		utils.Warn(fmt.Sprintf("Voice service: Intent processing failed for '%s': %s", transcription, intentResult.Error))
 		
 		// Add failed entry to history
 		vs.addToHistory(types.VoiceHistoryEntry{
@@ -274,7 +274,7 @@ func (vs *VoiceService) handleIntent(transcription string, intentResult *types.I
 		return
 	}
 
-	log.Printf("Voice service: Successfully processed '%s' -> %d device commands", transcription, len(intentResult.Commands))
+	utils.Debug(fmt.Sprintf("Voice service: Successfully processed '%s' -> %d device commands", transcription, len(intentResult.Commands)))
 
 	// Add to history
 	commandSummary := ""
@@ -304,7 +304,7 @@ func (vs *VoiceService) handleIntent(transcription string, intentResult *types.I
 
 // handleError handles voice processing errors
 func (vs *VoiceService) handleError(message string, processingTime float64) {
-	log.Printf("Voice service error: %s (%.3fs processing)", message, processingTime)
+	utils.Warn(fmt.Sprintf("Voice service error: %s (%.3fs processing)", message, processingTime))
 	
 	// Add to history as failed entry
 	vs.addToHistory(types.VoiceHistoryEntry{
@@ -323,7 +323,7 @@ func (vs *VoiceService) handleError(message string, processingTime float64) {
 
 // handleStatusUpdate handles general status updates
 func (vs *VoiceService) handleStatusUpdate(eventType, message string) {
-	log.Printf("Voice service: %s - %s", eventType, message)
+	utils.Debug(fmt.Sprintf("Voice service: %s - %s", eventType, message))
 	
 	// Send WebSocket event
 	realtime.BroadcastEvent("voice_status_update", map[string]interface{}{
@@ -350,7 +350,7 @@ func (vs *VoiceService) addToHistory(entry types.VoiceHistoryEntry) {
 // executeDeviceCommands executes device commands from voice intent
 func (vs *VoiceService) executeDeviceCommands(intentResult *types.IntentResult) {
 	if len(intentResult.Commands) == 0 {
-		log.Printf("No device commands to execute")
+		utils.Debug("No device commands to execute")
 		return
 	}
 	
@@ -363,7 +363,7 @@ func (vs *VoiceService) executeDeviceCommands(intentResult *types.IntentResult) 
 		
 		commandJSON, err := json.Marshal(command)
 		if err != nil {
-			log.Printf("Failed to marshal device command: %v", err)
+			utils.Error(fmt.Sprintf("Failed to marshal device command: %v", err), err)
 			continue
 		}
 		
@@ -374,8 +374,8 @@ func (vs *VoiceService) executeDeviceCommands(intentResult *types.IntentResult) 
 			displayName = deviceCmd.FriendlyName
 		}
 		
-		log.Printf("Executing voice command: %s (%s) -> %s = %v", 
-			displayName, deviceName, deviceCmd.Property, deviceCmd.Value)
+		utils.Debug(fmt.Sprintf("Executing voice command: %s (%s) -> %s = %v",
+			displayName, deviceName, deviceCmd.Property, deviceCmd.Value))
 		
 		// Execute the command via the registered callback
 		if vs.deviceCommandFunc != nil {
@@ -424,7 +424,7 @@ func getAudioInputDevices() ([]types.AudioDevice, error) {
 	for _, device := range devices {
 		info, err := ctx.DeviceInfo(malgo.Capture, device.ID, malgo.Shared)
 		if err != nil {
-			log.Printf("Warning: Failed to get info for input device %s: %v", device.Name(), err)
+			utils.Warn(fmt.Sprintf("Failed to get info for input device %s: %v", device.Name(), err))
 			continue
 		}
 		
@@ -446,8 +446,8 @@ func getAudioInputDevices() ([]types.AudioDevice, error) {
 			Name:      device.Name(),
 			IsDefault: false,
 		})
-		
-		log.Printf("Found input device: %s", device.Name())
+
+		utils.Debug(fmt.Sprintf("Found input device: %s", device.Name()))
 	}
 
 	return audioDevices, nil
@@ -478,7 +478,7 @@ func getAudioOutputDevices() ([]types.AudioDevice, error) {
 	for _, device := range devices {
 		info, err := ctx.DeviceInfo(malgo.Playback, device.ID, malgo.Shared)
 		if err != nil {
-			log.Printf("Warning: Failed to get info for output device %s: %v", device.Name(), err)
+			utils.Warn(fmt.Sprintf("Failed to get info for output device %s: %v", device.Name(), err))
 			continue
 		}
 		
@@ -500,8 +500,8 @@ func getAudioOutputDevices() ([]types.AudioDevice, error) {
 			Name:      device.Name(),
 			IsDefault: false,
 		})
-		
-		log.Printf("Found output device: %s", device.Name())
+
+		utils.Debug(fmt.Sprintf("Found output device: %s", device.Name()))
 	}
 
 	return audioDevices, nil

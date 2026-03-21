@@ -3,11 +3,11 @@ package realtime
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/azukaar/sumika/server/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -208,7 +208,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		utils.Warn(fmt.Sprintf("WebSocket upgrade error: %v", err))
 		return
 	}
 
@@ -246,7 +246,7 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				utils.Warn(fmt.Sprintf("WebSocket error: %v", err))
 			}
 			break
 		}
@@ -274,7 +274,7 @@ func (c *Client) writePump() {
 			}
 
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf("WebSocket write error: %v", err)
+				utils.Warn(fmt.Sprintf("WebSocket write error: %v", err))
 				return
 			}
 

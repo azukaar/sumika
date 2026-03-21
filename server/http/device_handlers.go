@@ -102,12 +102,12 @@ func API_GetDeviceProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("[DEBUG] API_GetDeviceProperties: Looking for properties for device '%s'\n", device)
+	utils.Debug(fmt.Sprintf("API_GetDeviceProperties: Looking for properties for device '%s'", device))
 
 	// Get device properties from exposes (not state)
 	properties := zigbee2mqtt.GetDeviceProperties(device)
 	
-	fmt.Printf("[DEBUG] API_GetDeviceProperties: Found %d properties for device '%s': %v\n", len(properties), device, properties)
+	utils.Debug(fmt.Sprintf("API_GetDeviceProperties: Found %d properties for device '%s': %v", len(properties), device, properties))
 	WriteJSON(w, properties)
 }
 
@@ -198,17 +198,17 @@ func (api *DeviceMetadataAPI) API_IdentifyDevice(w http.ResponseWriter, r *http.
 // API_GetAllDevicesWithSpecs retrieves all devices from local storage with their specifications
 func (api *DeviceMetadataAPI) API_GetAllDevicesWithSpecs(w http.ResponseWriter, r *http.Request) {
 	devices := zigbee2mqtt.GetDeviceCache()
-	fmt.Printf("[DEBUG] DeviceMetadataAPI: Retrieved %d devices from cache\n", len(devices))
+	utils.Debug(fmt.Sprintf("DeviceMetadataAPI: Retrieved %d devices from cache", len(devices)))
 	
 	enrichedDevices, err := api.metadataService.GetBulkDeviceMetadata(devices)
 	if err != nil {
-		fmt.Printf("[DEBUG] DeviceMetadataAPI: Error processing bulk metadata: %v\n", err)
+		utils.Debug(fmt.Sprintf("DeviceMetadataAPI: Error processing bulk metadata: %v", err))
 		api.errorHandler.HandleError(w, r, 
 			errors.NewInternalError("Failed to process device metadata", err), 
 			"process_bulk_metadata")
 		return
 	}
-	fmt.Printf("[DEBUG] DeviceMetadataAPI: Successfully enriched %d devices\n", len(enrichedDevices))
+	utils.Debug(fmt.Sprintf("DeviceMetadataAPI: Successfully enriched %d devices", len(enrichedDevices)))
 	
 	WriteJSON(w, map[string]interface{}{
 		"count":     len(enrichedDevices),

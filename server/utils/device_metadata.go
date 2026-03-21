@@ -107,41 +107,41 @@ func NewDeviceMetadataService() *DeviceMetadataService {
 	// Get the directory where the binary is located
 	execPath, err := os.Executable()
 	if err != nil {
-		fmt.Printf("[DEBUG] DeviceMetadataService: Could not determine executable path: %v\n", err)
+		Debug(fmt.Sprintf("DeviceMetadataService: Could not determine executable path: %v", err))
 	}
 	
 	var scriptPath string
 	if err == nil {
 		binaryDir := filepath.Dir(execPath)
 		scriptPath = filepath.Join(binaryDir, "device-metadata-script", "index.js")
-		fmt.Printf("[DEBUG] DeviceMetadataService: Trying script path relative to binary: %s\n", scriptPath)
+		Debug(fmt.Sprintf("DeviceMetadataService: Trying script path relative to binary: %s", scriptPath))
 		
 		// Check if script exists relative to binary
 		if _, statErr := os.Stat(scriptPath); os.IsNotExist(statErr) {
-			fmt.Printf("[DEBUG] DeviceMetadataService: Script not found at: %s\n", scriptPath)
+			Debug(fmt.Sprintf("DeviceMetadataService: Script not found at: %s", scriptPath))
 			scriptPath = "" // will try other paths below
 		} else {
-			fmt.Printf("[DEBUG] DeviceMetadataService: Found script at: %s\n", scriptPath)
+			Debug(fmt.Sprintf("DeviceMetadataService: Found script at: %s", scriptPath))
 		}
 	}
 	
 	// If not found relative to binary, try current working directory
 	if scriptPath == "" {
 		scriptPath = "./device-metadata-script/index.js"
-		fmt.Printf("[DEBUG] DeviceMetadataService: Trying current directory path: %s\n", scriptPath)
+		Debug(fmt.Sprintf("DeviceMetadataService: Trying current directory path: %s", scriptPath))
 		
 		if _, statErr := os.Stat(scriptPath); os.IsNotExist(statErr) {
 			// Try absolute path for Docker container
 			scriptPath = "/app/device-metadata-script/index.js"
-			fmt.Printf("[DEBUG] DeviceMetadataService: Trying Docker absolute path: %s\n", scriptPath)
+			Debug(fmt.Sprintf("DeviceMetadataService: Trying Docker absolute path: %s", scriptPath))
 			
 			if _, statErr2 := os.Stat(scriptPath); os.IsNotExist(statErr2) {
-				fmt.Printf("[DEBUG] DeviceMetadataService: WARNING: Script not found at any expected location!\n")
+				Debug("DeviceMetadataService: WARNING: Script not found at any expected location!")
 			} else {
-				fmt.Printf("[DEBUG] DeviceMetadataService: Found script at Docker path: %s\n", scriptPath)
+				Debug(fmt.Sprintf("DeviceMetadataService: Found script at Docker path: %s", scriptPath))
 			}
 		} else {
-			fmt.Printf("[DEBUG] DeviceMetadataService: Found script at current directory: %s\n", scriptPath)
+			Debug(fmt.Sprintf("DeviceMetadataService: Found script at current directory: %s", scriptPath))
 		}
 	}
 	
@@ -201,13 +201,13 @@ func (s *DeviceMetadataService) GetDeviceMetadata(modelID, manufacturerName stri
 	s.cacheMu.RUnlock()
 
 	// Execute Node script
-	fmt.Printf("[DEBUG] DeviceMetadataService: Executing Node script at path: %s\n", s.scriptPath)
-	fmt.Printf("[DEBUG] DeviceMetadataService: Command args: --identify %s %s\n", modelID, manufacturerName)
+	Debug(fmt.Sprintf("DeviceMetadataService: Executing Node script at path: %s", s.scriptPath))
+	Debug(fmt.Sprintf("DeviceMetadataService: Command args: --identify %s %s", modelID, manufacturerName))
 	cmd := exec.Command("node", s.scriptPath, "--identify", modelID, manufacturerName)
 	output, err := cmd.Output()
-	fmt.Printf("[DEBUG] DeviceMetadataService: Command output length: %d bytes\n", len(output))
+	Debug(fmt.Sprintf("DeviceMetadataService: Command output length: %d bytes", len(output)))
 	if err != nil {
-		fmt.Printf("[DEBUG] DeviceMetadataService: Command error: %v\n", err)
+		Debug(fmt.Sprintf("DeviceMetadataService: Command error: %v", err))
 	}
 	if err != nil {
 		// Check if the error output contains JSON error message

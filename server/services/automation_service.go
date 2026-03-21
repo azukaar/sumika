@@ -9,6 +9,7 @@ import (
 
 	"github.com/azukaar/sumika/server/storage"
 	"github.com/azukaar/sumika/server/types"
+	"github.com/azukaar/sumika/server/utils"
 )
 
 // Button press tracking for detecting double presses and timing
@@ -118,7 +119,7 @@ func (s *AutomationService) DeleteAutomation(id string) error {
 
 // CheckTriggers checks if any automations should be triggered
 func (s *AutomationService) CheckTriggers(deviceName string, oldState, newState map[string]interface{}) {
-	fmt.Printf("[AUTOMATION] Checking triggers for device: %s\n", deviceName)
+	utils.Debug(fmt.Sprintf("Checking triggers for device: %s", deviceName))
 	
 	automations, err := s.GetAllAutomations()
 	if err != nil {
@@ -126,7 +127,7 @@ func (s *AutomationService) CheckTriggers(deviceName string, oldState, newState 
 		return
 	}
 	
-	fmt.Printf("[AUTOMATION] Total automations: %d\n", len(automations))
+	utils.Debug(fmt.Sprintf("Total automations: %d", len(automations)))
 	
 	for _, automation := range automations {
 		if !automation.Enabled {
@@ -205,13 +206,13 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 		s.buttonStates[stateKey] = state
 	}
 	
-	fmt.Printf("[BUTTON] Handling %s for %s.%s\n", condition, deviceName, property)
+	utils.Debug(fmt.Sprintf("Handling %s for %s.%s", condition, deviceName, property))
 	
 	// Handle different conditions
 	switch condition {
 	case "long_pressed":
 		// Long press from device - cancel any pending single press and trigger immediately
-		fmt.Printf("[BUTTON] Long press detected for %s.%s - cancelling any pending single press\n", deviceName, property)
+		utils.Log(fmt.Sprintf("Long press detected for %s.%s", deviceName, property))
 		state.DoublePressPending = false // Cancel any pending single press
 		if state.LongPressTimer != nil {
 			state.LongPressTimer.Stop()
@@ -233,7 +234,7 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 			state.PressCount = 2
 			state.LastPressTime = now
 			state.DoublePressPending = false // Cancel pending single press
-			fmt.Printf("[BUTTON] Double press detected for %s.%s - cancelling single press\n", deviceName, property)
+			utils.Log(fmt.Sprintf("Double press detected for %s.%s", deviceName, property))
 			
 			// Trigger any double press automations immediately
 			automations, err := s.GetAllAutomations()
@@ -241,7 +242,7 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 				for _, auto := range automations {
 					if auto.Enabled && auto.Trigger.DeviceName == deviceName && 
 					   auto.Trigger.Property == property && auto.Trigger.Condition == "double_pressed" {
-						fmt.Printf("[BUTTON] Executing double press automation: %s\n", auto.Name)
+						utils.Log(fmt.Sprintf("Executing double press automation: %s", auto.Name))
 						go s.ExecuteAutomationAction(auto)
 					}
 				}
@@ -253,7 +254,7 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 			state.LastPressTime = now
 			state.DoublePressPending = true
 			
-			fmt.Printf("[BUTTON] Starting debounce for single press on %s.%s\n", deviceName, property)
+			utils.Debug(fmt.Sprintf("Starting debounce for single press on %s.%s", deviceName, property))
 			
 			// Debounce the single press - wait to see if double press or long press happens
 			go func() {
@@ -261,7 +262,7 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 				
 				// Check if single press is still pending (not cancelled by double press or long press)
 				if state.DoublePressPending && state.PressCount == 1 {
-					fmt.Printf("[BUTTON] Single press confirmed for %s.%s (debounce completed)\n", deviceName, property)
+					utils.Log(fmt.Sprintf("Single press confirmed for %s.%s", deviceName, property))
 					state.DoublePressPending = false
 					s.ExecuteAutomationAction(automation)
 				}
@@ -327,12 +328,11 @@ func (s *AutomationService) ExecuteAutomationActionWithValue(automation types.Au
 	// Convert to JSON for the zigbee2mqtt topic
 	commandJSON, err := json.Marshal(command)
 	if err != nil {
-		fmt.Printf("Error marshaling automation command: %v\n", err)
+		utils.Error("Error marshaling automation command", err)
 		return
 	}
-	
-	fmt.Printf("Executing automation '%s': sending %s to device %s\n", 
-		automation.Name, string(commandJSON), action.DeviceName)
+
+	utils.Log(fmt.Sprintf("Executing automation '%s' on device %s", automation.Name, action.DeviceName))
 	
 	// Send the command via zigbee2mqtt
 	s.SendDeviceCommand(action.DeviceName, string(commandJSON))

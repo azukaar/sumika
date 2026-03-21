@@ -12,6 +12,7 @@ import (
 	"github.com/azukaar/sumika/server/MQTT"
 	"github.com/azukaar/sumika/server/realtime"
 	"github.com/azukaar/sumika/server/storage"
+	"github.com/azukaar/sumika/server/utils"
 )
 
 // Callback functions for device management
@@ -269,7 +270,7 @@ func debugSaveMQTTMessage(messageType, topic string, payload []byte) {
 	// Create debug directory
 	debugDir := "_DEBUG"
 	if err := os.MkdirAll(debugDir, 0755); err != nil {
-		fmt.Printf("[DEBUG] Failed to create debug directory: %v\n", err)
+		utils.Debug(fmt.Sprintf("Failed to create debug directory: %v", err))
 		return
 	}
 	
@@ -297,9 +298,9 @@ func debugSaveMQTTMessage(messageType, topic string, payload []byte) {
 	// Write to debug file
 	debugJson, _ := json.MarshalIndent(debugData, "", "  ")
 	if err := ioutil.WriteFile(filepath, debugJson, 0644); err != nil {
-		fmt.Printf("[DEBUG] Failed to write debug file: %v\n", err)
+		utils.Debug(fmt.Sprintf("Failed to write debug file: %v", err))
 	} else {
-		fmt.Printf("[DEBUG] Saved MQTT message to: %s\n", filepath)
+		utils.Debug(fmt.Sprintf("Saved MQTT message to: %s", filepath))
 	}
 }
 
@@ -317,20 +318,20 @@ func RemoveDevice(deviceName string) {
 		"id": deviceName,
 	}
 	MQTT.Publish("zb2m-sumika/bridge/request/device/remove", toJSON(payload))
-	fmt.Printf("[MQTT] Requested removal of device: %s from Zigbee2MQTT\n", deviceName)
+	utils.Log(fmt.Sprintf("Requested removal of device: %s from Zigbee2MQTT", deviceName))
 }
 
 func RestartZigbee2MQTT() {
 	// Send restart command to Zigbee2MQTT
 	MQTT.Publish("zb2m-sumika/bridge/request/restart", []byte("{}"))
-	fmt.Printf("[MQTT] Requested Zigbee2MQTT restart\n")
+	utils.Log("Requested Zigbee2MQTT restart")
 }
 
 func ReloadDeviceState(deviceName string) {
 	// Send get command to request fresh device state from Zigbee2MQTT
 	topic := fmt.Sprintf("zb2m-sumika/%s/get", deviceName)
 	MQTT.Publish(topic, []byte("{}"))
-	fmt.Printf("[MQTT] Requested device state refresh for: %s\n", deviceName)
+	utils.Debug(fmt.Sprintf("Requested device state refresh for: %s", deviceName))
 }
 
 var DeviceList []Device
@@ -354,16 +355,16 @@ func Init() {
 			
 			if !isCoordinator {
 				DeviceList = append(DeviceList, device)
-				fmt.Printf("[FILTER] Including device: %s (model: %s)\n", device.FriendlyName, device.Definition.Model)
+				utils.Debug(fmt.Sprintf("Including device: %s (model: %s)", device.FriendlyName, device.Definition.Model))
 			} else {
-				fmt.Printf("[FILTER] Excluding coordinator/bridge device: %s (no model, name suggests coordinator)\n", device.FriendlyName)
+				utils.Debug(fmt.Sprintf("Excluding coordinator/bridge device: %s", device.FriendlyName))
 			}
 		}
 		
 		// Update device cache
 		updateDeviceCache()
 		
-		fmt.Printf("[CACHE] Saved %d devices to cache (filtered from %d total)\n", len(DeviceList), len(allDevices))
+		utils.Debug(fmt.Sprintf("Saved %d devices to cache (filtered from %d total)", len(DeviceList), len(allDevices)))
 	})
 	SaveUpdates()
 }
@@ -376,7 +377,7 @@ func ListDevices() []Device {
 	// Try to use cached devices first
 	cachedDevices := GetDeviceCache()
 	if len(cachedDevices) > 0 {
-		fmt.Printf("[CACHE] Using cached device list with %d devices\n", len(cachedDevices))
+		utils.Debug(fmt.Sprintf("Using cached device list with %d devices", len(cachedDevices)))
 		// Convert cached devices back to Device structs
 		var devices []Device
 		for _, cachedDevice := range cachedDevices {
@@ -396,7 +397,7 @@ func ListDevices() []Device {
 			if device.CustomCategory == "" {
 				guessedCategory := GuessDeviceCategory(cachedDevice)
 				if guessedCategory != "unknown" {
-					fmt.Printf("[CACHE] Auto-categorizing device '%s' as '%s'\n", device.FriendlyName, guessedCategory)
+					utils.Debug(fmt.Sprintf("Auto-categorizing device '%s' as '%s'", device.FriendlyName, guessedCategory))
 					SetDeviceCustomCategory(device.FriendlyName, guessedCategory)
 					device.CustomCategory = guessedCategory
 				}
@@ -408,7 +409,7 @@ func ListDevices() []Device {
 	}
 	
 	// Fallback to live DeviceList
-	fmt.Printf("[CACHE] Cache empty, using live device list with %d devices\n", len(DeviceList))
+	utils.Debug(fmt.Sprintf("Cache empty, using live device list with %d devices", len(DeviceList)))
 	// populate zones and custom metadata for each device
 	for key, device := range DeviceList {
 		DeviceList[key].Zones = GetZonesOfDevice(device.FriendlyName)
@@ -428,7 +429,7 @@ func ListDevices() []Device {
 			
 			guessedCategory := GuessDeviceCategory(deviceCache)
 			if guessedCategory != "unknown" {
-				fmt.Printf("[LIVE] Auto-categorizing device '%s' as '%s'\n", device.FriendlyName, guessedCategory)
+				utils.Debug(fmt.Sprintf("Auto-categorizing device '%s' as '%s'", device.FriendlyName, guessedCategory))
 				SetDeviceCustomCategory(device.FriendlyName, guessedCategory)
 				DeviceList[key].CustomCategory = guessedCategory
 			}
@@ -439,57 +440,56 @@ func ListDevices() []Device {
 
 // GetDeviceState returns the current state of a device by name
 func GetDeviceState(deviceName string) map[string]interface{} {
-	fmt.Printf("[DEBUG] Looking for device state: %s\n", deviceName)
-	
-	// Debug: List all devices in DeviceList
-	fmt.Printf("[DEBUG] DeviceList contains %d devices:\n", len(DeviceList))
+	utils.Debug(fmt.Sprintf("Looking for device state: %s", deviceName))
+
+	utils.Debug(fmt.Sprintf("DeviceList contains %d devices:", len(DeviceList)))
 	for i, device := range DeviceList {
-		fmt.Printf("[DEBUG]   [%d] FriendlyName: '%s'\n", i, device.FriendlyName)
+		utils.Debug(fmt.Sprintf("  [%d] FriendlyName: '%s'", i, device.FriendlyName))
 	}
 	
 	// First try to find in live DeviceList
 	deviceIndex := getDeviceByName(deviceName)
 	if deviceIndex != -1 {
 		if DeviceList[deviceIndex].State != nil {
-			fmt.Printf("[DEBUG] Device %s found in live list with state: %+v\n", deviceName, DeviceList[deviceIndex].State)
+			utils.Debug(fmt.Sprintf("Device %s found in live list with state: %+v", deviceName, DeviceList[deviceIndex].State))
 			return DeviceList[deviceIndex].State
 		} else {
-			fmt.Printf("[DEBUG] Device %s found in live list but has no state\n", deviceName)
+			utils.Debug(fmt.Sprintf("Device %s found in live list but has no state", deviceName))
 		}
 	} else {
-		fmt.Printf("[DEBUG] Device %s not found in live DeviceList\n", deviceName)
+		utils.Debug(fmt.Sprintf("Device %s not found in live DeviceList", deviceName))
 	}
 	
 	// If not found in live list, try cached devices
 	cachedDevices := GetDeviceCache()
-	fmt.Printf("[DEBUG] Cache contains %d devices:\n", len(cachedDevices))
+	utils.Debug(fmt.Sprintf("Cache contains %d devices:", len(cachedDevices)))
 	for i, cachedDevice := range cachedDevices {
 		if friendlyName, exists := cachedDevice["friendly_name"]; exists {
-			fmt.Printf("[DEBUG]   [%d] friendly_name: '%s'\n", i, friendlyName)
+			utils.Debug(fmt.Sprintf("  [%d] friendly_name: '%s'", i, friendlyName))
 		}
 		if friendlyName, exists := cachedDevice["friendly_name"]; exists && friendlyName == deviceName {
 			if state, hasState := cachedDevice["state"]; hasState {
-				fmt.Printf("[DEBUG] Device %s state type: %T, value: %+v\n", deviceName, state, state)
+				utils.Debug(fmt.Sprintf("Device %s state type: %T, value: %+v", deviceName, state, state))
 				if stateMap, ok := state.(map[string]interface{}); ok {
-					fmt.Printf("[DEBUG] Device %s found in cache with state: %+v\n", deviceName, stateMap)
+					utils.Debug(fmt.Sprintf("Device %s found in cache with state: %+v", deviceName, stateMap))
 					return stateMap
 				} else {
-					fmt.Printf("[DEBUG] Device %s found in cache but state is not a map (type: %T)\n", deviceName, state)
+					utils.Debug(fmt.Sprintf("Device %s found in cache but state is not a map (type: %T)", deviceName, state))
 				}
 			} else {
-				fmt.Printf("[DEBUG] Device %s found in cache but has no state\n", deviceName)
+				utils.Debug(fmt.Sprintf("Device %s found in cache but has no state", deviceName))
 			}
 		}
 	}
 	
-	fmt.Printf("[DEBUG] Device %s not found or has no state\n", deviceName)
+	utils.Debug(fmt.Sprintf("Device %s not found or has no state", deviceName))
 	return map[string]interface{}{}
 }
 
 func updateDeviceCache() {
 	// Get existing cache to merge with
 	existingCache := GetDeviceCache()
-	fmt.Printf("[CACHE] Merging %d Zigbee2MQTT devices with %d existing cached devices\n", len(DeviceList), len(existingCache))
+	utils.Debug(fmt.Sprintf("Merging %d Zigbee2MQTT devices with %d existing cached devices", len(DeviceList), len(existingCache)))
 	
 	// Convert new DeviceList to map for easy lookup by friendly_name
 	newDevicesMap := make(map[string]map[string]interface{})
@@ -517,7 +517,7 @@ func updateDeviceCache() {
 					mergedDevice := mergeDevice(existingDevice, newDevice)
 					mergedCache = append(mergedCache, mergedDevice)
 					delete(newDevicesMap, name) // Mark as processed
-					fmt.Printf("[CACHE] Updated existing device: %s\n", name)
+					utils.Debug(fmt.Sprintf("Updated existing device: %s", name))
 				} else {
 						mergedCache = append(mergedCache, existingDevice)
 				}
@@ -527,11 +527,11 @@ func updateDeviceCache() {
 	
 	// Add any new devices not in existing cache
 	for name, newDevice := range newDevicesMap {
-		fmt.Printf("[CACHE] Adding new Zigbee device: %s\n", name)
+		utils.Log(fmt.Sprintf("New Zigbee device discovered: %s", name))
 		mergedCache = append(mergedCache, newDevice)
 	}
 	
-	fmt.Printf("[CACHE] Final merged cache has %d devices\n", len(mergedCache))
+	utils.Debug(fmt.Sprintf("Final merged cache has %d devices", len(mergedCache)))
 	SetDeviceCache(mergedCache)
 }
 
@@ -567,12 +567,9 @@ func SaveUpdates() {
 		// Debug: Save device state update message  
 		debugSaveMQTTMessage("device_state", topic, payload)
 		
-		fmt.Println("[MQTT] SAVE UPDATE:", topic, (string)(payload))
 		// get last part of topic
 		parts := strings.Split(topic, "/")
 		deviceName := parts[len(parts)-1]
-
-		fmt.Println("[MQTT] Device name:", deviceName)
 
 		mapData := map[string]interface{}{}
 		json.Unmarshal([]byte(payload), &mapData)
@@ -588,7 +585,7 @@ func SaveUpdates() {
 		for i, cachedDevice := range cachedDevices {
 			if friendlyName, exists := cachedDevice["friendly_name"]; exists && friendlyName == deviceName {
 				deviceFound = true
-				fmt.Printf("[MQTT] Found device %s in cache\n", deviceName)
+				utils.Debug(fmt.Sprintf("Found device %s in cache", deviceName))
 				
 				// Get old state from cache
 				if state, hasState := cachedDevice["state"]; hasState {
@@ -607,7 +604,7 @@ func SaveUpdates() {
 		}
 		
 		if !deviceFound {
-			fmt.Printf("[MQTT] Device %s not found in cache, creating new entry\n", deviceName)
+			utils.Log(fmt.Sprintf("New device %s detected, creating cache entry", deviceName))
 			// Create new cache entry if device not found
 			newDeviceCache = map[string]interface{}{
 				"friendly_name": deviceName,
@@ -622,13 +619,13 @@ func SaveUpdates() {
 		}
 
 		// Update cache
-		fmt.Printf("[DEBUG] SaveUpdates: Saving device cache with %d devices\n", len(cachedDevices))
+		utils.Debug(fmt.Sprintf("SaveUpdates: Saving device cache with %d devices", len(cachedDevices)))
 		for i, device := range cachedDevices {
 			if friendlyName, exists := device["friendly_name"]; exists {
 				if state, hasState := device["state"]; hasState {
-					fmt.Printf("[DEBUG] SaveUpdates: Device [%d] %s has state: %+v\n", i, friendlyName, state)
+					utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has state: %+v", i, friendlyName, state))
 				} else {
-					fmt.Printf("[DEBUG] SaveUpdates: Device [%d] %s has no state\n", i, friendlyName)
+					utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has no state", i, friendlyName))
 				}
 			}
 		}
@@ -638,13 +635,13 @@ func SaveUpdates() {
 		if !deviceFound && newDeviceCache != nil {
 			guessedCategory := GuessDeviceCategory(newDeviceCache)
 			if guessedCategory != "unknown" {
-				fmt.Printf("[MQTT] Setting guessed category '%s' for new device: %s\n", guessedCategory, deviceName)
+				utils.Debug(fmt.Sprintf("Setting guessed category '%s' for new device: %s", guessedCategory, deviceName))
 				SetDeviceCustomCategory(deviceName, guessedCategory)
 			}
 		}
 		
 		// Check automation triggers when device state changes
-		fmt.Printf("[MQTT] Checking automation triggers for device: %s\n", deviceName)
+		utils.Debug(fmt.Sprintf("Checking automation triggers for device: %s", deviceName))
 		if automationCallback != nil {
 			automationCallback(deviceName, oldState, mapData)
 		}
@@ -659,9 +656,9 @@ func SaveUpdates() {
 		if deviceIndex != -1 {
 			DeviceList[deviceIndex].State = mapData
 			DeviceList[deviceIndex].LastSeen = time.Now().Format("2006-01-02T15:04:05Z07:00")
-			fmt.Println("[MQTT] Device updated in live list:", deviceName, "last seen:", DeviceList[deviceIndex].LastSeen)
+			utils.Debug(fmt.Sprintf("Device updated in live list: %s", deviceName))
 		} else {
-			fmt.Printf("[MQTT] Device %s not in live DeviceList (this is normal if bridge/devices hasn't been received yet)\n", deviceName)
+			utils.Debug(fmt.Sprintf("Device %s not in live DeviceList (bridge/devices not received yet)", deviceName))
 		}
 	})
 }

@@ -195,7 +195,7 @@ func handleMessage(topic string, payload []byte) {
 }
 
 func Publish(topic string, payload []byte) {
-  fmt.Println("[MQTT] Publish:", topic, (string)(payload))
+  utils.Debug(fmt.Sprintf("MQTT Publish: %s", topic))
   
   if IsExternalBroker {
     token := ExternalClient.Publish(topic, 2, true, payload)
@@ -210,7 +210,7 @@ func Publish(topic string, payload []byte) {
 }
 
 func Subscribe(topic string, cb func(topic string, payload []byte)) {
-  fmt.Println("[MQTT] Subscribe:", topic)
+  utils.Debug(fmt.Sprintf("MQTT Subscribe: %s", topic))
 
   ListenersCache[topic] = cb
   

@@ -73,14 +73,14 @@ func (h *Hub) run() {
 			h.mutex.Lock()
 			h.clients[client] = true
 			h.mutex.Unlock()
-			fmt.Printf("[WEBSOCKET] Client connected: %s (total: %d)\n", client.id, len(h.clients))
+			utils.Debug(fmt.Sprintf("WebSocket client connected: %s (total: %d)", client.id, len(h.clients)))
 
 		case client := <-h.unregister:
 			h.mutex.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
-				fmt.Printf("[WEBSOCKET] Client disconnected: %s (total: %d)\n", client.id, len(h.clients))
+				utils.Debug(fmt.Sprintf("WebSocket client disconnected: %s (total: %d)", client.id, len(h.clients)))
 			}
 			h.mutex.Unlock()
 
@@ -126,15 +126,15 @@ func (h *Hub) BroadcastEventData(eventType string, data map[string]interface{}) 
 	
 	message, err := json.Marshal(event)
 	if err != nil {
-		fmt.Printf("[WEBSOCKET] Error marshaling event: %v\n", err)
+		utils.Error("Error marshaling WebSocket event", err)
 		return
 	}
 	
-	fmt.Printf("[WEBSOCKET] Broadcasting event %s: %s\n", eventType, string(message))
+	utils.Debug(fmt.Sprintf("Broadcasting event %s", eventType))
 	select {
 	case h.broadcast <- message:
 	default:
-		fmt.Println("[WEBSOCKET] Broadcast channel full, dropping message")
+		utils.Warn("WebSocket broadcast channel full, dropping message")
 	}
 }
 
@@ -159,15 +159,15 @@ func (h *Hub) BroadcastDeviceUpdate(deviceName string, newState, oldState map[st
 
 	message, err := json.Marshal(update)
 	if err != nil {
-		fmt.Printf("[WEBSOCKET] Error marshaling device update: %v\n", err)
+		utils.Error("Error marshaling device update", err)
 		return
 	}
 
-	fmt.Printf("[WEBSOCKET] Broadcasting device update for %s: %s\n", deviceName, string(message))
+	utils.Debug(fmt.Sprintf("Broadcasting device update for %s", deviceName))
 	select {
 	case h.broadcast <- message:
 	default:
-		fmt.Println("[WEBSOCKET] Broadcast channel full, dropping message")
+		utils.Warn("WebSocket broadcast channel full, dropping message")
 	}
 }
 

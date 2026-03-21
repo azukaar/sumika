@@ -8,11 +8,12 @@ services:
     container_name: sumika-server-dev
     ports:
       - "8081:8081"
+      - "1883:1883"
     devices:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
       - /dev:/dev
-      - /mnt/e/work/Sumika/build-data12:/app/build-data
+      -  E:\work\Sumika\build-data:/app/build-data
     privileged: true
     restart: unless-stopped
     environment:

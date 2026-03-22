@@ -1,0 +1,7 @@
+{
+  "name": "sumika",
+  "scripts": {
+    "start": "PYTHON_BIN=.venv/bin/python DEBUG_PYTHON=1 ./build/sumika.exe",
+    "start-windows": "powershell -Command $env:PYTHON_BIN='.venv\\Scripts\\python.exe'; $env:DEBUG_PYTHON='1'; .\\build\\sumika.exe"
+  }
+}

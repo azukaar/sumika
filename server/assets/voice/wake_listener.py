@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import sys
+print("[wake_listener] Python process started", file=sys.stderr, flush=True)
 import argparse
 import os
 import time
+print("[wake_listener] importing numpy...", file=sys.stderr, flush=True)
 import numpy as np
+print("[wake_listener] numpy imported", file=sys.stderr, flush=True)
 import threading
-import sys
 import select
 import json
 import io
@@ -12,9 +15,13 @@ from collections import deque
 from enum import Enum
 
 # pip install openwakeword faster-whisper librosa
+print("[wake_listener] importing openwakeword...", file=sys.stderr)
 from openwakeword.model import Model
+print("[wake_listener] importing faster_whisper...", file=sys.stderr)
 from faster_whisper import WhisperModel
+print("[wake_listener] importing librosa...", file=sys.stderr)
 import librosa
+print("[wake_listener] imports complete", file=sys.stderr)
 
 FRAME_MS = 80                   # preferred frame duration
 SR = 16000                      # Hz

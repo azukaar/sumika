@@ -11,6 +11,7 @@ services:
       - "1883:1883"
     devices:
       - /dev/bus/usb:/dev/bus/usb
+      - /dev/snd:/dev/snd
     volumes:
       - /dev:/dev
       -  E:\work\Sumika\build-data:/app/build-data

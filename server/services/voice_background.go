@@ -514,7 +514,11 @@ func (vr *VoiceRunner) run() {
         
         // Use Python script from assets/voice directory
         wakeListenerScript := buildAssetPath("wake_listener.py")
-        py = exec.Command("python3", wakeListenerScript, 
+        pythonBin := "python3"
+        if p := os.Getenv("PYTHON_BIN"); p != "" {
+            pythonBin = p
+        }
+        py = exec.Command(pythonBin, "-u", wakeListenerScript,
             "--file", outPath,
             "--whisper-model", vr.config.WhisperModel,
             "--whisper-device", vr.config.WhisperDevice,
@@ -554,7 +558,7 @@ func (vr *VoiceRunner) run() {
                 var event PythonEvent
                 if err := json.Unmarshal([]byte(line), &event); err != nil {
                     if os.Getenv("DEBUG_PYTHON") != "" {
-                        utils.Debug(fmt.Sprintf("AUDIO DEBUG: %s", event))
+                        utils.Debug(fmt.Sprintf("PYTHON: %s", line))
                     }
                     continue
                 }

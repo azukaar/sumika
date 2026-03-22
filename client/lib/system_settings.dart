@@ -900,6 +900,10 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
   }
 
   Widget _buildDeviceSelector(String label, IconData icon, List<dynamic> devices, String currentDevice, String deviceType) {
+    // Ensure the current value exists in the device list to avoid DropdownButton assertion errors
+    final deviceIds = devices.map((d) => d['id']?.toString() ?? 'unknown').toSet();
+    final effectiveDevice = deviceIds.contains(currentDevice) ? currentDevice : (deviceIds.isNotEmpty ? deviceIds.first : null);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -933,7 +937,7 @@ class _SystemSettingsPageState extends ConsumerState<SystemSettingsPage> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: currentDevice,
+            value: effectiveDevice,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),

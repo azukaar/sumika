@@ -22,24 +22,27 @@ type ButtonPressState struct {
 	DoublePressPending bool
 }
 
-// Timing constants for button press detection
+// Timing constants for button press detection and automation cooldown
 const (
-	DoublePressWindow = 600 * time.Millisecond  // Time window to detect double press
-	LongPressDelay    = 800 * time.Millisecond  // Time to wait before triggering long press
+	DoublePressWindow  = 600 * time.Millisecond  // Time window to detect double press
+	LongPressDelay     = 800 * time.Millisecond  // Time to wait before triggering long press
+	AutomationCooldown = 2 * time.Second          // Min interval between triggers of the same automation
 )
 
 // AutomationService handles business logic for automation operations
 type AutomationService struct {
-	sceneService *SceneService
-	buttonStates map[string]*ButtonPressState
+	sceneService      *SceneService
+	buttonStates      map[string]*ButtonPressState
+	lastTriggered     map[string]time.Time // tracks last execution time per automation ID
 	SendDeviceCommand func(deviceName, command string)
 }
 
 // NewAutomationService creates a new automation service
 func NewAutomationService(sceneService *SceneService) *AutomationService {
 	return &AutomationService{
-		sceneService: sceneService,
-		buttonStates: make(map[string]*ButtonPressState),
+		sceneService:  sceneService,
+		buttonStates:  make(map[string]*ButtonPressState),
+		lastTriggered: make(map[string]time.Time),
 		SendDeviceCommand: func(deviceName, command string) {
 			fmt.Printf("SendDeviceCommand not initialized - would send: %s to %s\n", command, deviceName)
 		},
@@ -186,6 +189,12 @@ func (s *AutomationService) CheckTriggers(deviceName string, oldState, newState 
 		}
 		
 		if triggered {
+			// Cooldown: skip if this automation was triggered too recently
+			if last, ok := s.lastTriggered[automation.ID]; ok && time.Since(last) < AutomationCooldown {
+				utils.Debug(fmt.Sprintf("Skipping automation '%s' - still in cooldown", automation.Name))
+				continue
+			}
+			s.lastTriggered[automation.ID] = time.Now()
 			s.ExecuteAutomationAction(automation)
 		}
 	}
@@ -240,8 +249,13 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 			automations, err := s.GetAllAutomations()
 			if err == nil {
 				for _, auto := range automations {
-					if auto.Enabled && auto.Trigger.DeviceName == deviceName && 
+					if auto.Enabled && auto.Trigger.DeviceName == deviceName &&
 					   auto.Trigger.Property == property && auto.Trigger.Condition == "double_pressed" {
+						if last, ok := s.lastTriggered[auto.ID]; ok && time.Since(last) < AutomationCooldown {
+							utils.Debug(fmt.Sprintf("Skipping double press automation '%s' - still in cooldown", auto.Name))
+							continue
+						}
+						s.lastTriggered[auto.ID] = time.Now()
 						utils.Log(fmt.Sprintf("Executing double press automation: %s", auto.Name))
 						go s.ExecuteAutomationAction(auto)
 					}
@@ -259,9 +273,15 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 			// Debounce the single press - wait to see if double press or long press happens
 			go func() {
 				time.Sleep(DoublePressWindow)
-				
+
 				// Check if single press is still pending (not cancelled by double press or long press)
 				if state.DoublePressPending && state.PressCount == 1 {
+					if last, ok := s.lastTriggered[automation.ID]; ok && time.Since(last) < AutomationCooldown {
+						utils.Debug(fmt.Sprintf("Skipping single press automation '%s' - still in cooldown", automation.Name))
+						state.DoublePressPending = false
+						return
+					}
+					s.lastTriggered[automation.ID] = time.Now()
 					utils.Log(fmt.Sprintf("Single press confirmed for %s.%s", deviceName, property))
 					state.DoublePressPending = false
 					s.ExecuteAutomationAction(automation)

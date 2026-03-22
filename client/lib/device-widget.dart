@@ -462,8 +462,9 @@ class DeviceWidget extends ConsumerWidget {
         break;
       
       case 'sensor':
+      case 'door_window':
         return SensorCard(device: device);
-      
+
       case 'light':
         // For lights, find and show brightness control specifically
         for (var expose in exposes) {

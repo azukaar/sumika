@@ -127,6 +127,7 @@ type OpenAISession struct {
 
 	ending    bool
 	active    bool
+	speaking  bool // true while AI is producing audio — mic is muted to prevent echo
 	mu        sync.Mutex
 	closeOnce sync.Once
 	done      chan struct{}
@@ -223,8 +224,15 @@ func (s *OpenAISession) IsActive() bool {
 
 // SendAudio queues a 16 kHz PCM chunk for transmission to OpenAI.
 // Non-blocking; drops audio if the send buffer is full.
+// Muted while the AI is speaking to prevent echo feedback.
 func (s *OpenAISession) SendAudio(pcm16k []byte) {
 	if !s.IsActive() {
+		return
+	}
+	s.mu.Lock()
+	muted := s.speaking
+	s.mu.Unlock()
+	if muted {
 		return
 	}
 	buf := make([]byte, len(pcm16k))
@@ -273,7 +281,25 @@ func (s *OpenAISession) handleEvent(raw []byte) {
 		utils.Debug("OpenAI Realtime: session configured")
 
 	case "response.audio.delta":
+		// Mute mic on first audio chunk to prevent echo feedback.
+		s.mu.Lock()
+		if !s.speaking {
+			s.speaking = true
+			// Discard any mic audio OpenAI already buffered.
+			go func() { _ = s.sendEvent(map[string]interface{}{"type": "input_audio_buffer.clear"}) }()
+		}
+		s.mu.Unlock()
 		s.handleAudioDelta(ev)
+
+	case "response.audio.done":
+		// AI finished producing audio. Wait for speaker to drain before un-muting.
+		go func() {
+			time.Sleep(800 * time.Millisecond)
+			s.mu.Lock()
+			s.speaking = false
+			s.mu.Unlock()
+			utils.Debug("OpenAI Realtime: mic un-muted after AI speech")
+		}()
 
 	case "response.done":
 		s.handleResponseDone(ev)

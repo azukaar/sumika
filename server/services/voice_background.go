@@ -655,93 +655,139 @@ func (vr *VoiceRunner) run() {
         }
     }()
 
-    ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-        utils.Debug(fmt.Sprintf("[malgo] %s", message))
-    })
-    if err != nil {
-        utils.Warn(fmt.Sprintf("Failed to initialize audio context: %v", err))
-        utils.Warn("Voice recognition disabled - no audio device available")
-        if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Sprintf("Audio initialization failed: %v", err), 0.0)
+    const maxRetries = 3
+    const retryDelay = 3 * time.Second
+
+    var ctx *malgo.AllocatedContext
+    var device *malgo.Device
+
+    for attempt := 1; attempt <= maxRetries; attempt++ {
+        if attempt > 1 {
+            utils.Log(fmt.Sprintf("Retrying audio capture (attempt %d/%d) in %v...", attempt, maxRetries, retryDelay))
+            time.Sleep(retryDelay)
         }
-        return
+
+        // Wait for audio devices to be ready at startup
+        if attempt == 1 {
+            time.Sleep(2 * time.Second)
+        }
+
+        var err error
+        ctx, err = malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+            utils.Debug(fmt.Sprintf("[malgo] %s", message))
+        })
+        if err != nil {
+            utils.Warn(fmt.Sprintf("Failed to initialize audio context (attempt %d): %v", attempt, err))
+            if attempt == maxRetries {
+                utils.Warn("Voice recognition disabled - no audio device available")
+                if vr.callbacks.OnError != nil {
+                    vr.callbacks.OnError(fmt.Sprintf("Audio initialization failed: %v", err), 0.0)
+                }
+                return
+            }
+            continue
+        }
+
+        // Store context globally so PlayWAVFile can reuse it
+        sharedAudioCtxMutex.Lock()
+        sharedAudioCtx = ctx
+        sharedAudioCtxMutex.Unlock()
+
+        deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
+        deviceConfig.Capture.Format = malgo.FormatS16
+        deviceConfig.Capture.Channels = channels
+        deviceConfig.SampleRate = sampleRate
+        deviceConfig.Alsa.NoMMap = 1
+
+        // Set specific input device if configured
+        if vr.config.InputDevice != "default" && vr.config.InputDevice != "" {
+            utils.Debug(fmt.Sprintf("Using configured input device: %s", vr.config.InputDevice))
+            if deviceInfo, findErr := findAudioDevice(ctx, vr.config.InputDevice, malgo.Capture); findErr == nil {
+                deviceConfig.Capture.DeviceID = deviceInfo.ID.Pointer()
+                utils.Debug(fmt.Sprintf("Found and configured input device: %s", deviceInfo.Name()))
+            } else {
+                utils.Warn(fmt.Sprintf("Failed to find input device '%s': %v", vr.config.InputDevice, findErr))
+            }
+        }
+
+        onRecvFrames := func(_ []byte, pInputSample []byte, frameCount uint32) {
+            if len(pInputSample) == 0 {
+                return
+            }
+
+            fileMutex.RLock()
+            defer fileMutex.RUnlock()
+
+            if f == nil {
+                return
+            }
+
+            if _, writeErr := f.Write(pInputSample); writeErr != nil {
+                if !errors.Is(writeErr, os.ErrClosed) {
+                    utils.Warn(fmt.Sprintf("write error: %v", writeErr))
+                }
+                return
+            }
+            totalBytes += uint64(len(pInputSample))
+        }
+
+        deviceCallbacks := malgo.DeviceCallbacks{
+            Data: onRecvFrames,
+        }
+
+        device, err = malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
+        if err != nil {
+            utils.Warn(fmt.Sprintf("Failed to initialize audio device (attempt %d): %v", attempt, err))
+            sharedAudioCtxMutex.Lock()
+            sharedAudioCtx = nil
+            sharedAudioCtxMutex.Unlock()
+            _ = ctx.Uninit()
+            ctx.Free()
+            if attempt == maxRetries {
+                utils.Warn("Voice recognition disabled - no audio device available")
+                if vr.callbacks.OnError != nil {
+                    vr.callbacks.OnError(fmt.Sprintf("Audio device initialization failed: %v", err), 0.0)
+                }
+                return
+            }
+            continue
+        }
+
+        // Play startup sound before capture starts
+        if err := PlayWAVFile(buildAssetPath("processing-soundreality.wav")); err != nil {
+            utils.Warn(fmt.Sprintf("Failed to play startup sound: %v", err))
+        }
+
+        if err := device.Start(); err != nil {
+            utils.Warn(fmt.Sprintf("Failed to start audio device (attempt %d): %v", attempt, err))
+            device.Uninit()
+            sharedAudioCtxMutex.Lock()
+            sharedAudioCtx = nil
+            sharedAudioCtxMutex.Unlock()
+            _ = ctx.Uninit()
+            ctx.Free()
+            if attempt == maxRetries {
+                utils.Warn("Voice recognition disabled - audio device start failed")
+                if vr.callbacks.OnError != nil {
+                    vr.callbacks.OnError(fmt.Sprintf("Audio device start failed: %v", err), 0.0)
+                }
+                return
+            }
+            continue
+        }
+
+        // Success
+        break
     }
+
     defer func() {
         sharedAudioCtxMutex.Lock()
         sharedAudioCtx = nil
         sharedAudioCtxMutex.Unlock()
+        device.Uninit()
         _ = ctx.Uninit()
         ctx.Free()
     }()
-
-    // Store context globally so PlayWAVFile can reuse it instead of creating a competing one
-    sharedAudioCtxMutex.Lock()
-    sharedAudioCtx = ctx
-    sharedAudioCtxMutex.Unlock()
-
-    deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
-    deviceConfig.Capture.Format = malgo.FormatS16
-    deviceConfig.Capture.Channels = channels
-    deviceConfig.SampleRate = sampleRate
-    deviceConfig.Alsa.NoMMap = 1
-    
-    // Set specific input device if configured
-    if vr.config.InputDevice != "default" && vr.config.InputDevice != "" {
-        utils.Debug(fmt.Sprintf("Using configured input device: %s", vr.config.InputDevice))
-        if deviceInfo, err := findAudioDevice(ctx, vr.config.InputDevice, malgo.Capture); err == nil {
-            deviceConfig.Capture.DeviceID = deviceInfo.ID.Pointer()
-            utils.Debug(fmt.Sprintf("Found and configured input device: %s", deviceInfo.Name()))
-        } else {
-            utils.Warn(fmt.Sprintf("Failed to find input device '%s': %v", vr.config.InputDevice, err))
-        }
-    }
-
-    onRecvFrames := func(_ []byte, pInputSample []byte, frameCount uint32) {
-        if len(pInputSample) == 0 {
-            return
-        }
-        
-        fileMutex.RLock()
-        defer fileMutex.RUnlock()
-        
-        if f == nil {
-            return
-        }
-        
-        if _, err := f.Write(pInputSample); err != nil {
-            if !errors.Is(err, os.ErrClosed) {
-                utils.Warn(fmt.Sprintf("write error: %v", err))
-            }
-            return
-        }
-        totalBytes += uint64(len(pInputSample))
-    }
-
-    deviceCallbacks := malgo.DeviceCallbacks{
-        Data: onRecvFrames,
-    }
-
-    device, err := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
-    if err != nil {
-        utils.Warn(fmt.Sprintf("Failed to initialize audio device: %v", err))
-        utils.Warn("Voice recognition disabled - no audio device available")
-        if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Sprintf("Audio device initialization failed: %v", err), 0.0)
-        }
-        return
-    }
-    defer device.Uninit()
-
-    if err := device.Start(); err != nil {
-        utils.Warn(fmt.Sprintf("Failed to start audio device: %v", err))
-        utils.Warn("Voice recognition disabled - audio device start failed")
-        if vr.callbacks.OnError != nil {
-            vr.callbacks.OnError(fmt.Sprintf("Audio device start failed: %v", err), 0.0)
-        }
-        return
-    }
-
-    PlayAudioFile("processing-soundreality.wav")
 
     utils.Log(fmt.Sprintf("Capturing @ %d Hz, %d ch, %d-bit - Voice recognition active.", sampleRate, channels, bitsPerSample))
 

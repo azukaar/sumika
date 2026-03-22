@@ -7,3 +7,5 @@ _DEBUG/
 device-metadata-script/node_modules/
 docker-compose.dev.yml
 .venv
+__pycache__
+.env

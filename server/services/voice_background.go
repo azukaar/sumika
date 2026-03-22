@@ -40,6 +40,9 @@ type VoiceRunner struct {
     stopChan  chan bool
     running   bool
     mutex     sync.RWMutex
+
+    activeSession *OpenAISession // non-nil during an OpenAI Realtime conversation
+    sessionMutex  sync.RWMutex
 }
 
 type PythonEvent struct {
@@ -393,6 +396,86 @@ func (vr *VoiceRunner) IsRunning() bool {
     return vr.running
 }
 
+func (vr *VoiceRunner) getActiveSession() *OpenAISession {
+    vr.sessionMutex.RLock()
+    defer vr.sessionMutex.RUnlock()
+    return vr.activeSession
+}
+
+func (vr *VoiceRunner) setActiveSession(s *OpenAISession) {
+    vr.sessionMutex.Lock()
+    defer vr.sessionMutex.Unlock()
+    vr.activeSession = s
+}
+
+// startOpenAISession runs a single OpenAI Realtime conversation.
+// Called as a goroutine when a wake word is detected and OPENAI_KEY is set.
+func (vr *VoiceRunner) startOpenAISession(apiKey string, restartPython func(), resetFile func()) {
+    // Don't start a second session if one is already active.
+    if vr.getActiveSession() != nil {
+        return
+    }
+
+    intents, err := loadIntentsData()
+    if err != nil {
+        utils.Warn(fmt.Sprintf("OpenAI session: load intents: %v", err))
+        return
+    }
+
+    session := NewOpenAISession(apiKey, intents.Devices)
+
+    // Wire callbacks through the existing VoiceRunner callback chain.
+    session.OnCommand = func(cmd types.DeviceCommand) {
+        result := &types.IntentResult{
+            Success:  true,
+            Input:    cmd.CustomName + " " + cmd.Property,
+            Commands: []types.DeviceCommand{cmd},
+        }
+        if vr.callbacks.OnIntent != nil {
+            vr.callbacks.OnIntent(result.Input, result)
+        }
+    }
+    session.OnTranscript = func(text string) {
+        if vr.callbacks.OnTranscription != nil {
+            vr.callbacks.OnTranscription(text, 0, 0)
+        }
+    }
+    session.OnError = func(e error) {
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(e.Error(), 0)
+        }
+    }
+    session.OnEnd = func() {
+        PlayAudioFile("done-arnav-geddada.wav")
+    }
+
+    if err := session.Connect(); err != nil {
+        utils.Warn(fmt.Sprintf("OpenAI session: connect failed: %v", err))
+        if vr.callbacks.OnError != nil {
+            vr.callbacks.OnError(fmt.Sprintf("OpenAI connect: %v", err), 0)
+        }
+        return
+    }
+    defer session.Close()
+
+    // Redirect mic audio to OpenAI instead of the WAV file.
+    vr.setActiveSession(session)
+    defer vr.setActiveSession(nil)
+
+    // Prevent Python from doing its own transcription during the session.
+    restartPython()
+
+    // Start 24 kHz playback for the AI's spoken responses.
+    go startOpenAIPlayback(session.audioOut, session.Done())
+
+    // Block until the session ends.
+    <-session.Done()
+
+    // Resume wake word detection.
+    resetFile()
+    utils.Log("OpenAI Realtime session ended, resuming wake word detection")
+}
+
 // run is the main voice recognition loop (refactored from original Run function)
 func (vr *VoiceRunner) run() {
     defer func() {
@@ -406,7 +489,15 @@ func (vr *VoiceRunner) run() {
         }
     }()
 
+    loadDotEnv()
+
+    openAIKey := os.Getenv("OPENAI_KEY")
+    useOpenAI := openAIKey != ""
+
     utils.Log("OpenWake Voice Assistant starting")
+    if useOpenAI {
+        utils.Log("OpenAI Realtime mode enabled (OPENAI_KEY set)")
+    }
     utils.Debug(fmt.Sprintf("Whisper Model: %s", vr.config.WhisperModel))
     utils.Debug(fmt.Sprintf("Whisper Device: %s", vr.config.WhisperDevice))
     utils.Debug(fmt.Sprintf("Compute Type: %s", vr.config.ComputeType))
@@ -570,6 +661,9 @@ func (vr *VoiceRunner) run() {
                     if vr.callbacks.OnWakeWordDetected != nil {
                         vr.callbacks.OnWakeWordDetected(event.Label, event.Score)
                     }
+                    if useOpenAI {
+                        go vr.startOpenAISession(openAIKey, restartPythonReader, resetFile)
+                    }
                 case "listening_start":
                     if event.Message != "" {
                         utils.Debug(event.Message)
@@ -581,11 +675,18 @@ func (vr *VoiceRunner) run() {
                         utils.Debug(fmt.Sprintf("AUDIO DEBUG: %s", event.Message))
                     }
                 case "silence_detected":
+                    if vr.getActiveSession() != nil {
+                        break // OpenAI handles silence via its own VAD
+                    }
                     PlayAudioFile("processing-soundreality.wav")
                     utils.Debug(event.Message)
                 case "max_buffer_reached":
                     utils.Debug(event.Message)
                 case "transcription":
+                    if vr.getActiveSession() != nil {
+                        resetFile()
+                        break // OpenAI handles transcription
+                    }
                     if event.AudioDuration > 0 && event.ProcessingTime > 0 {
                         utils.Log(fmt.Sprintf("TRANSCRIPTION (%.2fs audio, %.3fs processing): \"%s\"",
                             event.AudioDuration, event.ProcessingTime, event.Text))
@@ -712,6 +813,12 @@ func (vr *VoiceRunner) run() {
 
         onRecvFrames := func(_ []byte, pInputSample []byte, frameCount uint32) {
             if len(pInputSample) == 0 {
+                return
+            }
+
+            // During an OpenAI session, forward audio there instead of the WAV file.
+            if session := vr.getActiveSession(); session != nil && session.IsActive() {
+                session.SendAudio(pInputSample)
                 return
             }
 

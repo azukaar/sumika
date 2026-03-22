@@ -349,19 +349,22 @@ def main():
     for model in args.model:
         print(f" - {model}")
 
+    print("[wake_listener] Loading wake word model...", file=sys.stderr, flush=True)
     wake_model = Model(
         wakeword_models=args.model if args.model else None,
         # vad_threshold=None if args.vad < 0 else float(args.vad),
         enable_speex_noise_suppression=False,
         inference_framework="onnx", # for windows
     )
+    print("[wake_listener] Wake word model loaded", file=sys.stderr, flush=True)
 
-    print(f"Loading Whisper model '{args.whisper_model}' on {args.whisper_device} with compute type '{args.compute_type}'...")
+    print(f"[wake_listener] Loading Whisper model '{args.whisper_model}' on {args.whisper_device}...", file=sys.stderr, flush=True)
     speech_processor = SpeechProcessor(
         whisper_model=args.whisper_model,
         device=args.whisper_device,
         compute_type=args.compute_type
     )
+    print("[wake_listener] Whisper model loaded", file=sys.stderr, flush=True)
 
     # Create file reader and start stdin monitor
     reader = RestartableFileReader(args.file)

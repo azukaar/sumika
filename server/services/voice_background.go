@@ -27,6 +27,12 @@ const (
     resetInterval = 10 * time.Minute
 )
 
+// Shared malgo context for audio — avoids ALSA poll() failures from concurrent contexts
+var (
+    sharedAudioCtx      *malgo.AllocatedContext
+    sharedAudioCtxMutex sync.RWMutex
+)
+
 // VoiceRunner manages voice recognition with configurable callbacks
 type VoiceRunner struct {
     config    types.VoiceConfig
@@ -173,17 +179,28 @@ func PlayWAVFile(filename string) error {
         return nil // Empty file
     }
 
-    // Initialize malgo context for playback
-    ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-        // Silent callback
-    })
-    if err != nil {
-        return err
+    // Reuse the shared malgo context if available (avoids ALSA poll() failures
+    // from concurrent contexts when capture is active)
+    sharedAudioCtxMutex.RLock()
+    shared := sharedAudioCtx
+    sharedAudioCtxMutex.RUnlock()
+
+    var ctx *malgo.AllocatedContext
+    if shared != nil {
+        ctx = shared
+    } else {
+        var err2 error
+        ctx, err2 = malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+            // Silent callback
+        })
+        if err2 != nil {
+            return err2
+        }
+        defer func() {
+            _ = ctx.Uninit()
+            ctx.Free()
+        }()
     }
-    defer func() {
-        _ = ctx.Uninit()
-        ctx.Free()
-    }()
 
     // Setup playback device config
     deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
@@ -646,9 +663,17 @@ func (vr *VoiceRunner) run() {
         return
     }
     defer func() {
+        sharedAudioCtxMutex.Lock()
+        sharedAudioCtx = nil
+        sharedAudioCtxMutex.Unlock()
         _ = ctx.Uninit()
         ctx.Free()
     }()
+
+    // Store context globally so PlayWAVFile can reuse it instead of creating a competing one
+    sharedAudioCtxMutex.Lock()
+    sharedAudioCtx = ctx
+    sharedAudioCtxMutex.Unlock()
 
     deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
     deviceConfig.Capture.Format = malgo.FormatS16

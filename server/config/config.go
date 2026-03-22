@@ -42,13 +42,14 @@ type DatabaseConfig struct {
 
 // VoiceConfig holds voice recognition configuration
 type VoiceConfig struct {
-	Enabled       bool    `json:"enabled"`
-	WhisperModel  string  `json:"whisper_model"`
-	WhisperDevice string  `json:"whisper_device"`
-	ComputeType   string  `json:"compute_type"`
-	InputDevice   string  `json:"input_device"`
-	OutputDevice  string  `json:"output_device"`
-	WakeThreshold float64 `json:"wake_threshold"`
+	Enabled                bool    `json:"enabled"`
+	WhisperModel           string  `json:"whisper_model"`
+	WhisperDevice          string  `json:"whisper_device"`
+	ComputeType            string  `json:"compute_type"`
+	InputDevice            string  `json:"input_device"`
+	OutputDevice           string  `json:"output_device"`
+	WakeThreshold          float64 `json:"wake_threshold"`
+	EchoCancellation bool `json:"echo_cancellation"`
 }
 
 // WeatherConfig holds weather configuration
@@ -137,13 +138,14 @@ func getDefaultConfig() *Config {
 			DataDirectory: "./build-data",
 		},
 		Voice: VoiceConfig{
-			Enabled:       true,
-			WhisperModel:  "base",
-			WhisperDevice: "cpu",
-			ComputeType:   "int8",
-			InputDevice:   "default",
-			OutputDevice:  "default",
-			WakeThreshold: 0.5,
+			Enabled:                 true,
+			WhisperModel:            "base",
+			WhisperDevice:           "cpu",
+			ComputeType:             "int8",
+			InputDevice:             "default",
+			OutputDevice:            "default",
+			WakeThreshold:           0.5,
+			EchoCancellation: false,
 		},
 		Weather: WeatherConfig{
 			Enabled:   false,
@@ -219,6 +221,9 @@ func loadFromEnvironment(config *Config) {
 		if t, err := strconv.ParseFloat(threshold, 64); err == nil {
 			config.Voice.WakeThreshold = t
 		}
+	}
+	if ec := os.Getenv("SUMIKA_ECHO_CANCELLATION"); ec != "" {
+		config.Voice.EchoCancellation = ec == "true"
 	}
 
 	// Weather configuration

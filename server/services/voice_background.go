@@ -422,7 +422,8 @@ func (vr *VoiceRunner) startOpenAISession(apiKey string, restartPython func(), r
         return
     }
 
-    session := NewOpenAISession(apiKey, intents.Devices)
+    cfg := config.GetConfig()
+    session := NewOpenAISession(apiKey, intents.Devices, cfg.Voice.EchoCancellation)
 
     // Wire callbacks through the existing VoiceRunner callback chain.
     session.OnCommand = func(cmd types.DeviceCommand) {
@@ -466,7 +467,7 @@ func (vr *VoiceRunner) startOpenAISession(apiKey string, restartPython func(), r
     restartPython()
 
     // Start 24 kHz playback for the AI's spoken responses.
-    go startOpenAIPlayback(session.audioOut, session.Done())
+    go startOpenAIPlayback(session.audioOut, session.Done(), session.echoCanceller)
 
     // Block until the session ends.
     <-session.Done()
@@ -488,8 +489,6 @@ func (vr *VoiceRunner) run() {
             utils.Warn(fmt.Sprintf("Voice recognition panicked: %v", r))
         }
     }()
-
-    loadDotEnv()
 
     openAIKey := os.Getenv("OPENAI_KEY")
     useOpenAI := openAIKey != ""

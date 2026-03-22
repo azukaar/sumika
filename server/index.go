@@ -14,10 +14,14 @@ import (
 	"github.com/azukaar/sumika/server/realtime"
 	"github.com/azukaar/sumika/server/services"
 	"github.com/azukaar/sumika/server/storage"
+	"github.com/azukaar/sumika/server/utils"
 	httpHandlers "github.com/azukaar/sumika/server/http"
 )
 
 func main() {
+	// Load .env early so all packages (MQTT, voice, etc.) see the values
+	utils.LoadDotEnv()
+
 	fmt.Println("Starting Sumika API Server...")
 	
 	// Load configuration from file and environment

@@ -21,43 +21,6 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// .env loader (no external deps, does not override existing env vars)
-// ---------------------------------------------------------------------------
-
-func loadDotEnv() {
-	// Try working directory first (typical location), then executable directory.
-	candidates := []string{".env", buildPath(".env")}
-	var data []byte
-	for _, path := range candidates {
-		var err error
-		data, err = os.ReadFile(path)
-		if err == nil {
-			utils.Debug(fmt.Sprintf("Loaded .env from %s", path))
-			break
-		}
-	}
-	if data == nil {
-		return
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		val = strings.Trim(val, `"'`)
-		if os.Getenv(key) == "" {
-			os.Setenv(key, val)
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
 // intents.json types
 // ---------------------------------------------------------------------------
 
@@ -125,16 +88,21 @@ type OpenAISession struct {
 	OnError      func(err error)
 	OnEnd        func()
 
-	ending    bool
-	active    bool
-	speaking  bool // true while AI is producing audio — mic is muted to prevent echo
-	mu        sync.Mutex
-	closeOnce sync.Once
-	done      chan struct{}
+	echoCanceller *EchoCanceller // nil when echo cancellation is disabled
+
+	ending          bool
+	active          bool
+	speaking        bool      // true while AI is producing audio
+	audioRecvStart  time.Time // when first audio delta of current response arrived
+	audioRecvBytes  int64     // total decoded PCM bytes received for current response
+	lastAITranscript string  // last thing the AI said — used for echo detection
+	mu              sync.Mutex
+	closeOnce       sync.Once
+	done            chan struct{}
 }
 
 // NewOpenAISession creates a session. Call Connect() to start it.
-func NewOpenAISession(apiKey string, devices []IntentDevice) *OpenAISession {
+func NewOpenAISession(apiKey string, devices []IntentDevice, echoCancellation bool) *OpenAISession {
 	model := os.Getenv("OPENAI_REALTIME_MODEL")
 	if model == "" {
 		model = defaultRealtimeModel
@@ -143,7 +111,7 @@ func NewOpenAISession(apiKey string, devices []IntentDevice) *OpenAISession {
 	if voice == "" {
 		voice = defaultVoice
 	}
-	return &OpenAISession{
+	s := &OpenAISession{
 		apiKey:   apiKey,
 		model:    model,
 		voice:    voice,
@@ -152,6 +120,11 @@ func NewOpenAISession(apiKey string, devices []IntentDevice) *OpenAISession {
 		audioOut: make(chan []byte, audioOutBufSize),
 		done:     make(chan struct{}),
 	}
+	if echoCancellation {
+		s.echoCanceller = NewEchoCanceller()
+		utils.Log("OpenAI Realtime: echo cancellation enabled")
+	}
+	return s
 }
 
 // Connect dials the WebSocket and starts background goroutines.
@@ -224,15 +197,10 @@ func (s *OpenAISession) IsActive() bool {
 
 // SendAudio queues a 16 kHz PCM chunk for transmission to OpenAI.
 // Non-blocking; drops audio if the send buffer is full.
-// Muted while the AI is speaking to prevent echo feedback.
+// Audio always flows into the pipeline so the echo canceller can adapt
+// continuously. The actual gating (mute) happens in audioSendLoop.
 func (s *OpenAISession) SendAudio(pcm16k []byte) {
 	if !s.IsActive() {
-		return
-	}
-	s.mu.Lock()
-	muted := s.speaking
-	s.mu.Unlock()
-	if muted {
 		return
 	}
 	buf := make([]byte, len(pcm16k))
@@ -281,24 +249,44 @@ func (s *OpenAISession) handleEvent(raw []byte) {
 		utils.Debug("OpenAI Realtime: session configured")
 
 	case "response.audio.delta":
-		// Mute mic on first audio chunk to prevent echo feedback.
 		s.mu.Lock()
 		if !s.speaking {
 			s.speaking = true
-			// Discard any mic audio OpenAI already buffered.
-			go func() { _ = s.sendEvent(map[string]interface{}{"type": "input_audio_buffer.clear"}) }()
+			s.audioRecvStart = time.Now()
+			s.audioRecvBytes = 0
+			// Without echo cancellation, discard any mic audio OpenAI already buffered.
+			if s.echoCanceller == nil {
+				go func() { _ = s.sendEvent(map[string]interface{}{"type": "input_audio_buffer.clear"}) }()
+			}
 		}
 		s.mu.Unlock()
 		s.handleAudioDelta(ev)
 
 	case "response.audio.done":
-		// AI finished producing audio. Wait for speaker to drain before un-muting.
+		// AI finished sending audio, but the playback pipeline still has
+		// buffered data. Estimate remaining playback time and wait.
 		go func() {
-			time.Sleep(800 * time.Millisecond)
+			s.mu.Lock()
+			// 24 kHz × 2 bytes/sample = 48000 bytes/sec
+			totalDur := time.Duration(float64(s.audioRecvBytes) / 48000.0 * float64(time.Second))
+			elapsed := time.Since(s.audioRecvStart)
+			s.mu.Unlock()
+
+			remaining := totalDur - elapsed
+			if remaining > 0 {
+				time.Sleep(remaining)
+			}
+			// Extra grace for OS audio buffer + room reverb tail.
+			time.Sleep(500 * time.Millisecond)
+
 			s.mu.Lock()
 			s.speaking = false
 			s.mu.Unlock()
-			utils.Debug("OpenAI Realtime: mic un-muted after AI speech")
+			if s.echoCanceller == nil {
+				utils.Debug("OpenAI Realtime: mic un-muted after AI speech")
+			} else {
+				utils.Debug("OpenAI Realtime: AI speech playback finished")
+			}
 		}()
 
 	case "response.done":
@@ -349,6 +337,29 @@ func (s *OpenAISession) audioSendLoop() {
 			if !ok {
 				return
 			}
+			// Always run EC so the filter keeps adapting, even during mute.
+			if s.echoCanceller != nil {
+				pcm = s.echoCanceller.Process(pcm)
+			}
+
+			// Decide whether to forward to OpenAI.
+			s.mu.Lock()
+			isSpeaking := s.speaking
+			speakStart := s.audioRecvStart
+			s.mu.Unlock()
+
+			if isSpeaking {
+				// Hard-mute for first 2s to block the initial echo burst.
+				if time.Since(speakStart) < 2*time.Second {
+					continue
+				}
+				// After 2s: with EC the cleaned audio goes through (user
+				// can interrupt); without EC stay muted (no way to filter).
+				if s.echoCanceller == nil {
+					continue
+				}
+			}
+
 			upsampled := upsample16to24(pcm)
 			encoded := base64.StdEncoding.EncodeToString(upsampled)
 			_ = s.sendEvent(map[string]interface{}{
@@ -370,10 +381,12 @@ func (s *OpenAISession) handleAudioDelta(ev map[string]interface{}) {
 	if err != nil {
 		return
 	}
+	s.mu.Lock()
+	s.audioRecvBytes += int64(len(pcm))
+	s.mu.Unlock()
 	select {
 	case s.audioOut <- pcm:
 	default:
-		// drop if buffer full
 	}
 }
 
@@ -463,10 +476,19 @@ func (s *OpenAISession) controlDevice(argsJSON string) string {
 		}
 	}
 
-	// Parse value: try numeric first, fall back to string.
+	// Parse value: try JSON object/array first, then numeric, then string.
 	var value interface{} = args.Value
-	if f, err := strconv.ParseFloat(args.Value, 64); err == nil {
-		value = f
+	var jsonVal interface{}
+	if err := json.Unmarshal([]byte(args.Value), &jsonVal); err == nil {
+		switch jsonVal.(type) {
+		case map[string]interface{}, []interface{}:
+			value = jsonVal
+		}
+	}
+	if value == args.Value { // wasn't parsed as JSON
+		if f, err := strconv.ParseFloat(args.Value, 64); err == nil {
+			value = f
+		}
 	}
 
 	cmd := types.DeviceCommand{
@@ -533,7 +555,7 @@ func buildTools(devices []IntentDevice) []interface{} {
 					},
 					"value": map[string]interface{}{
 						"type":        "string",
-						"description": "Value to set. Use ON/OFF/TOGGLE for binary, a number as string for numeric.",
+						"description": "Value to set. ON/OFF/TOGGLE for binary, number for numeric, or a JSON object for composite properties like color (e.g. {\"hue\":120,\"saturation\":254} or {\"hex\":\"#FF0000\"}).",
 					},
 				},
 				"required": []string{"ieee_address", "property", "value"},
@@ -557,7 +579,16 @@ func buildSystemPrompt(devices []IntentDevice) string {
 	sb.WriteString("You are Sumika, a smart home voice assistant. ")
 	sb.WriteString("Control devices with the control_device function. ")
 	sb.WriteString("When the user's request is done or they say goodbye, call end_conversation. ")
-	sb.WriteString("Keep spoken responses short and natural.\n\nAvailable devices:\n")
+	sb.WriteString("Keep spoken responses short and natural.\n\n")
+
+	// Color control instructions.
+	sb.WriteString("COLOR CONTROL: To change a light's color, use property \"color\" with a JSON object value.\n")
+	sb.WriteString("  Examples: {\"hex\":\"#FF0000\"} for red, {\"hue\":120,\"saturation\":254} for green.\n")
+	sb.WriteString("  Do NOT set hue or saturation as separate properties — always combine them under \"color\".\n")
+	sb.WriteString("  Common colors: red=#FF0000, green=#00FF00, blue=#0000FF, yellow=#FFFF00,\n")
+	sb.WriteString("  purple=#800080, orange=#FFA500, pink=#FFC0CB, cyan=#00FFFF, white=#FFFFFF.\n\n")
+
+	sb.WriteString("Available devices:\n")
 
 	for _, dev := range devices {
 		name := dev.CustomName
@@ -565,10 +596,15 @@ func buildSystemPrompt(devices []IntentDevice) string {
 			name = dev.FriendlyName
 		}
 
-		// Filter to writable properties only.
+		// Filter to writable properties, skip hue/saturation (covered by color instruction).
 		var props []string
+		hasColor := false
 		for _, p := range dev.Properties {
 			if !p.IsWritable {
+				continue
+			}
+			if p.Name == "hue" || p.Name == "saturation" {
+				hasColor = true
 				continue
 			}
 			desc := p.Name
@@ -591,8 +627,11 @@ func buildSystemPrompt(devices []IntentDevice) string {
 			}
 			props = append(props, desc)
 		}
+		if hasColor {
+			props = append(props, "color (use JSON: {\"hex\":\"#RRGGBB\"} or {\"hue\":0-360,\"saturation\":0-254})")
+		}
 		if len(props) == 0 {
-			continue // skip read-only devices
+			continue
 		}
 
 		zones := filterNonEmpty(dev.Zones)
@@ -681,6 +720,125 @@ func upsample16to24(pcm16k []byte) []byte {
 }
 
 // ---------------------------------------------------------------------------
+// Echo cancellation — NLMS adaptive filter
+// ---------------------------------------------------------------------------
+//
+// Subtracts estimated speaker echo from the mic signal. The playback audio
+// (reference) is fed via FeedReference; the mic audio is cleaned by Process.
+// The adaptive filter automatically learns the echo path (delay + room
+// response) within ~1-2 seconds.
+
+const (
+	ecFilterMs   = 150                                  // filter length (ms)
+	ecSampleRate = 16000                                // working sample rate
+	ecFilterLen  = ecFilterMs * ecSampleRate / 1000     // 2400 taps
+	ecStepSize   = 0.25                                 // NLMS adaptation rate
+)
+
+type EchoCanceller struct {
+	weights []float64 // adaptive FIR filter
+	refBuf  []float64 // circular reference buffer
+	refPos  int
+
+	incoming []byte     // pending 24 kHz reference audio from playback thread
+	inMu     sync.Mutex // protects incoming only (fast append)
+}
+
+func NewEchoCanceller() *EchoCanceller {
+	return &EchoCanceller{
+		weights: make([]float64, ecFilterLen),
+		refBuf:  make([]float64, ecFilterLen),
+	}
+}
+
+// FeedReference enqueues playback audio (24 kHz PCM). Called from the
+// audio playback callback — must be fast.
+func (ec *EchoCanceller) FeedReference(pcm24k []byte) {
+	pcm16k := downsample24to16(pcm24k)
+	if len(pcm16k) == 0 {
+		return
+	}
+	ec.inMu.Lock()
+	ec.incoming = append(ec.incoming, pcm16k...)
+	ec.inMu.Unlock()
+}
+
+// Process removes estimated echo from 16 kHz mic audio.
+// Called from audioSendLoop (regular goroutine, not an audio callback).
+func (ec *EchoCanceller) Process(mic16k []byte) []byte {
+	// Drain pending reference audio into the ring buffer.
+	ec.inMu.Lock()
+	refData := ec.incoming
+	ec.incoming = nil
+	ec.inMu.Unlock()
+
+	for i := 0; i+1 < len(refData); i += 2 {
+		s := float64(int16(binary.LittleEndian.Uint16(refData[i:]))) / 32768.0
+		ec.refBuf[ec.refPos] = s
+		ec.refPos = (ec.refPos + 1) % ecFilterLen
+	}
+
+	// NLMS: for each mic sample, estimate and subtract echo.
+	out := make([]byte, len(mic16k))
+	for i := 0; i+1 < len(mic16k); i += 2 {
+		micF := float64(int16(binary.LittleEndian.Uint16(mic16k[i:]))) / 32768.0
+
+		var echo, refPow float64
+		for j := 0; j < ecFilterLen; j++ {
+			idx := (ec.refPos - 1 - j + ecFilterLen) % ecFilterLen
+			r := ec.refBuf[idx]
+			echo += ec.weights[j] * r
+			refPow += r * r
+		}
+
+		errSig := micF - echo
+
+		// Adapt weights.
+		if refPow > 1e-10 {
+			step := ecStepSize / (refPow + 1e-8)
+			for j := 0; j < ecFilterLen; j++ {
+				idx := (ec.refPos - 1 - j + ecFilterLen) % ecFilterLen
+				ec.weights[j] += step * errSig * ec.refBuf[idx]
+			}
+		}
+
+		// Clamp to int16 range.
+		v := errSig * 32768.0
+		if v > 32767 {
+			v = 32767
+		} else if v < -32768 {
+			v = -32768
+		}
+		binary.LittleEndian.PutUint16(out[i:], uint16(int16(v)))
+	}
+	return out
+}
+
+// downsample24to16 resamples 24 kHz → 16 kHz PCM (ratio 2:3, linear interpolation).
+func downsample24to16(pcm24k []byte) []byte {
+	inSamples := len(pcm24k) / 2
+	if inSamples < 3 {
+		return nil
+	}
+	outSamples := inSamples * 2 / 3
+	out := make([]byte, outSamples*2)
+	for i := 0; i < outSamples; i++ {
+		srcPos := float64(i) * 3.0 / 2.0
+		idx := int(srcPos)
+		frac := srcPos - float64(idx)
+		if idx >= inSamples-1 {
+			copy(out[i*2:], pcm24k[(inSamples-1)*2:(inSamples-1)*2+2])
+			continue
+		}
+		s0 := int16(binary.LittleEndian.Uint16(pcm24k[idx*2:]))
+		s1 := int16(binary.LittleEndian.Uint16(pcm24k[(idx+1)*2:]))
+		sample := int16(float64(s0) + frac*float64(s1-s0))
+		binary.LittleEndian.PutUint16(out[i*2:], uint16(sample))
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
 // Streaming audio playback (24 kHz)
 // ---------------------------------------------------------------------------
 
@@ -706,8 +864,9 @@ func (b *audioBuffer) Read(p []byte) int {
 }
 
 // startOpenAIPlayback plays 24 kHz PCM audio chunks arriving on audioOut.
-// Blocks until done is closed.
-func startOpenAIPlayback(audioOut <-chan []byte, done <-chan struct{}) {
+// Blocks until done is closed. If ec is non-nil, played audio is fed as
+// the echo cancellation reference signal.
+func startOpenAIPlayback(audioOut <-chan []byte, done <-chan struct{}, ec *EchoCanceller) {
 	buf := &audioBuffer{}
 
 	// Feeder: channel → buffer
@@ -762,6 +921,12 @@ func startOpenAIPlayback(audioOut <-chan []byte, done <-chan struct{}) {
 		n := buf.Read(pOutput)
 		for i := n; i < len(pOutput); i++ {
 			pOutput[i] = 0 // silence
+		}
+		// Feed played audio to echo canceller as reference signal.
+		if ec != nil {
+			ref := make([]byte, len(pOutput))
+			copy(ref, pOutput)
+			ec.FeedReference(ref)
 		}
 	}
 

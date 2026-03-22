@@ -322,8 +322,10 @@ def main():
     if not os.path.exists(args.file):
         raise SystemExit(f"{args.file} does not exist yet")
 
+    print("[wake_listener] Downloading/checking wake word models...", file=sys.stderr, flush=True)
     import openwakeword
     openwakeword.utils.download_models()
+    print("[wake_listener] Wake word models ready", file=sys.stderr, flush=True)
 
     # Convert model filenames to full paths if they exist in the script directory
     script_dir = os.path.dirname(os.path.abspath(__file__))

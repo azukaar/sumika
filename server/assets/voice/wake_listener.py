@@ -379,6 +379,8 @@ def main():
         transcription_result = speech_processor.add_audio_frame(samples)
         if transcription_result:
             print(json.dumps(transcription_result), flush=True)
+            # Reset wake word model's internal buffers so it can detect immediately
+            wake_model.reset()
         
         # Only check for wake words when in wake word detection state and not in cooldown
         if speech_processor.state == ListenerState.WAKE_WORD_DETECTION and not speech_processor.is_in_cooldown():

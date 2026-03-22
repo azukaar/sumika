@@ -587,10 +587,10 @@ func (vr *VoiceRunner) run() {
                     utils.Debug(event.Message)
                 case "transcription":
                     if event.AudioDuration > 0 && event.ProcessingTime > 0 {
-                        utils.Debug(fmt.Sprintf("TRANSCRIPTION (%.2fs audio, %.3fs processing): \"%s\"",
+                        utils.Log(fmt.Sprintf("TRANSCRIPTION (%.2fs audio, %.3fs processing): \"%s\"",
                             event.AudioDuration, event.ProcessingTime, event.Text))
                     } else {
-                        utils.Debug(fmt.Sprintf("TRANSCRIPTION: \"%s\"", event.Text))
+                        utils.Log(fmt.Sprintf("TRANSCRIPTION: \"%s\"", event.Text))
                     }
                     
                     // Call transcription callback

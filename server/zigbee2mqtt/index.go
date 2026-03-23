@@ -3,11 +3,12 @@ package zigbee2mqtt
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"io/ioutil"
-	"time"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
+	"time"
 
 	"github.com/azukaar/sumika/server/MQTT"
 	"github.com/azukaar/sumika/server/realtime"
@@ -585,7 +586,7 @@ func SaveUpdates() {
 		for i, cachedDevice := range cachedDevices {
 			if friendlyName, exists := cachedDevice["friendly_name"]; exists && friendlyName == deviceName {
 				deviceFound = true
-				utils.Debug(fmt.Sprintf("Found device %s in cache", deviceName))
+				// utils.Debug(fmt.Sprintf("Found device %s in cache", deviceName))
 				
 				// Get old state from cache
 				if state, hasState := cachedDevice["state"]; hasState {
@@ -602,7 +603,27 @@ func SaveUpdates() {
 				break
 			}
 		}
-		
+
+		// Short-circuit: if state hasn't changed (ignoring noisy metadata), skip all processing
+		if deviceFound {
+			oldFiltered := make(map[string]interface{})
+			newFiltered := make(map[string]interface{})
+			for k, v := range oldState {
+				if k != "linkquality" {
+					oldFiltered[k] = v
+				}
+			}
+			for k, v := range mapData {
+				if k != "linkquality" {
+					newFiltered[k] = v
+				}
+			}
+			if reflect.DeepEqual(oldFiltered, newFiltered) {
+				// utils.Debug(fmt.Sprintf("Device %s state unchanged, skipping update", deviceName))
+				return
+			}
+		}
+
 		if !deviceFound {
 			utils.Log(fmt.Sprintf("New device %s detected, creating cache entry", deviceName))
 			// Create new cache entry if device not found

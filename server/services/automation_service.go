@@ -339,7 +339,21 @@ func (s *AutomationService) ExecuteAutomationAction(automation types.Automation)
 // ExecuteAutomationActionWithValue executes the action of an automation with a specific value
 func (s *AutomationService) ExecuteAutomationActionWithValue(automation types.Automation, value interface{}) {
 	action := automation.Action
-	
+
+	// Skip if device already has the target state
+	cachedDevices := storage.GetDeviceCache()
+	for _, cached := range cachedDevices {
+		if fn, ok := cached["friendly_name"]; ok && fn == action.DeviceName {
+			if state, ok := cached["state"].(map[string]interface{}); ok {
+				if currentVal, exists := state[action.Property]; exists && currentVal == value {
+					utils.Debug(fmt.Sprintf("Device %s already has %s=%v, skipping command", action.DeviceName, action.Property, value))
+					return
+				}
+			}
+			break
+		}
+	}
+
 	// Create the command to send to the device
 	command := map[string]interface{}{
 		action.Property: value,

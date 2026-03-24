@@ -641,15 +641,15 @@ func SaveUpdates() {
 
 		// Update cache
 		utils.Debug(fmt.Sprintf("SaveUpdates: Saving device cache with %d devices", len(cachedDevices)))
-		for i, device := range cachedDevices {
-			if friendlyName, exists := device["friendly_name"]; exists {
-				if state, hasState := device["state"]; hasState {
-					utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has state: %+v", i, friendlyName, state))
-				} else {
-					utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has no state", i, friendlyName))
-				}
-			}
-		}
+		// for i, device := range cachedDevices {
+		// 	if friendlyName, exists := device["friendly_name"]; exists {
+		// 		if state, hasState := device["state"]; hasState {
+		// 			utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has state: %+v", i, friendlyName, state))
+		// 		} else {
+		// 			utils.Debug(fmt.Sprintf("SaveUpdates: Device [%d] %s has no state", i, friendlyName))
+		// 		}
+		// 	}
+		// }
 		SetDeviceCache(cachedDevices)
 		
 		// For new devices (not found in cache), guess the device category

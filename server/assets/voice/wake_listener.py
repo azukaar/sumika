@@ -29,10 +29,188 @@ MAX_AUDIO_SECONDS = 10          # Max audio to buffer for transcription
 SILENCE_TIMEOUT_MS = 1000       # Silence duration to trigger transcription
 AUDIO_BUFFER_SIZE = int(SR * MAX_AUDIO_SECONDS * SAMPLE_BYTES)  # bytes
 
+# Pre-filter defaults
+FRAME_SAMPLES = int(SR * (FRAME_MS / 1000.0))  # 1280 samples per frame
+DEFAULT_NOISE_REDUCTION = 1.5
+DEFAULT_LIMITER_THRESHOLD = 0.7
+DEFAULT_ATTACK_THRESHOLD = 15.0
+DEFAULT_ATTACK_SUPPRESS_FRAMES = 2
+DEFAULT_MIN_WAKE_DURATION = 0.3
+PREFILTER_HISTORY_FRAMES = 15   # ~1.2 seconds at 80ms/frame
+
 class ListenerState(Enum):
     WAKE_WORD_DETECTION = "wake_detection"
     LISTENING_FOR_SPEECH = "listening"
     PROCESSING_SPEECH = "processing"
+
+
+class AudioPreFilter:
+    """Pre-filters audio before wake word detection to reject transient sounds."""
+
+    def __init__(self, noise_reduction=DEFAULT_NOISE_REDUCTION,
+                 limiter_threshold=DEFAULT_LIMITER_THRESHOLD,
+                 attack_threshold=DEFAULT_ATTACK_THRESHOLD,
+                 attack_suppress_frames=DEFAULT_ATTACK_SUPPRESS_FRAMES,
+                 min_wake_duration=DEFAULT_MIN_WAKE_DURATION):
+        self.noise_reduction = noise_reduction
+        self.limiter_threshold = limiter_threshold
+        self.attack_threshold = attack_threshold
+        self.attack_suppress_frames = attack_suppress_frames
+        self.min_wake_duration = min_wake_duration
+
+        # Noise reduction state
+        rfft_size = FRAME_SAMPLES // 2 + 1
+        self.noise_floor = np.zeros(rfft_size, dtype=np.float64)
+        self._noise_frames_seen = 0
+        self._noise_bootstrap_frames = 12  # ~1s at 80ms/frame
+
+        # Attack gate state
+        self._energy_history = deque(maxlen=6)  # ~480ms of RMS history
+        self._suppress_countdown = 0
+        self._suppressed = False
+
+        # Duration validation state
+        self._rms_history = deque(maxlen=PREFILTER_HISTORY_FRAMES)
+
+    def process(self, samples):
+        """Apply noise reduction, limiter, and attack gate. Returns filtered int16 samples."""
+        audio = samples.astype(np.float32) / 32768.0
+
+        # 1. Noise reduction (spectral subtraction)
+        if self.noise_reduction > 0:
+            audio = self._apply_noise_reduction(audio)
+
+        # 2. Soft limiter
+        if self.limiter_threshold > 0:
+            audio = self._apply_limiter(audio)
+
+        # 3. Attack gate
+        rms = np.sqrt(np.mean(audio ** 2))
+        self._rms_history.append(rms)
+        suppressed = False
+
+        if self.attack_threshold > 0:
+            suppressed = self._check_attack_gate(rms)
+
+        self._energy_history.append(rms)
+
+        if suppressed:
+            self._suppressed = True
+            # Return silence so the model's internal buffer stays aligned
+            return np.zeros(len(samples), dtype=np.int16)
+
+        self._suppressed = False
+        # Convert back to int16
+        return np.clip(audio * 32768.0, -32768, 32767).astype(np.int16)
+
+    def should_suppress(self):
+        """True if the last frame was gated by the attack detector."""
+        return self._suppressed
+
+    def validate_detection(self):
+        """Check if recent audio energy is sustained enough to be a real wake word."""
+        if self.min_wake_duration <= 0:
+            return True
+
+        if len(self._rms_history) < 3:
+            return True
+
+        history = list(self._rms_history)
+        median_rms = np.median(history)
+        elevated_threshold = max(median_rms * 2.0, 0.005)
+
+        # Find the longest consecutive elevated region anywhere in the buffer,
+        # not just from the end (model detection lags a few frames behind speech)
+        best_run = 0
+        current_run = 0
+        gap_budget = 1  # allow 1 non-elevated frame within a run
+
+        for rms_val in history:
+            if rms_val >= elevated_threshold:
+                current_run += 1
+                gap_budget = 1  # reset gap allowance
+            else:
+                if gap_budget > 0:
+                    gap_budget -= 1
+                    current_run += 1  # count the gap frame
+                else:
+                    best_run = max(best_run, current_run)
+                    current_run = 0
+                    gap_budget = 1
+        best_run = max(best_run, current_run)
+
+        duration_s = best_run * (FRAME_MS / 1000.0)
+        if duration_s < self.min_wake_duration:
+            return False
+        return True
+
+    def _apply_noise_reduction(self, audio):
+        """Spectral subtraction using exponential moving average noise floor."""
+        spectrum = np.fft.rfft(audio)
+        magnitude = np.abs(spectrum)
+        phase = np.angle(spectrum)
+
+        # Adapt noise floor estimate
+        rms = np.sqrt(np.mean(audio ** 2))
+        self._noise_frames_seen += 1
+
+        if self._noise_frames_seen <= self._noise_bootstrap_frames:
+            # Fast adaptation during bootstrap
+            alpha = 0.2
+        else:
+            alpha = 0.02
+
+        # Update noise floor more aggressively during quiet periods
+        if rms < 0.02:
+            alpha = min(alpha * 3, 0.5)
+
+        self.noise_floor = alpha * magnitude + (1.0 - alpha) * self.noise_floor
+
+        # Subtract noise floor from magnitude
+        cleaned_magnitude = np.maximum(magnitude - self.noise_reduction * self.noise_floor, 0.0)
+
+        # Reconstruct signal
+        cleaned_spectrum = cleaned_magnitude * np.exp(1j * phase)
+        cleaned_audio = np.fft.irfft(cleaned_spectrum, n=len(audio)).astype(np.float32)
+        return cleaned_audio
+
+    def _apply_limiter(self, audio):
+        """Soft limiter using tanh compression."""
+        peak = np.max(np.abs(audio))
+        if peak > self.limiter_threshold:
+            audio = np.tanh(audio / self.limiter_threshold) * self.limiter_threshold
+        return audio
+
+    def _check_attack_gate(self, current_rms):
+        """Check if energy appeared too suddenly (transient/impulse)."""
+        # Still in suppress period from a previous transient
+        if self._suppress_countdown > 0:
+            self._suppress_countdown -= 1
+            return True
+
+        if len(self._energy_history) < 3:
+            return False
+
+        # Mean of previous 3 frames
+        recent = list(self._energy_history)[-3:]
+        prev_mean = np.mean(recent)
+        epsilon = 1e-6
+
+        attack_ratio = current_rms / (prev_mean + epsilon)
+
+        # Only gate truly loud transients — speech onset is moderate (RMS 0.02-0.08),
+        # glass clicks/knocks are very loud (RMS 0.2+)
+        is_loud_transient = current_rms > 0.15
+
+        # Check if previous frames were quiet (ambient noise level)
+        quiet_floor = np.median(list(self._energy_history)) + np.std(list(self._energy_history))
+        was_quiet = prev_mean < max(quiet_floor, 0.02)
+
+        if attack_ratio > self.attack_threshold and was_quiet and is_loud_transient:
+            self._suppress_countdown = self.attack_suppress_frames
+            return True
+
+        return False
 
 
 class RestartableFileReader:
@@ -317,6 +495,11 @@ def main():
     ap.add_argument('--whisper-model', default="base", help='Whisper model to use (tiny, base, small, medium, large-v1, large-v2, large-v3, turbo)')
     ap.add_argument('--whisper-device', default="cpu", help='Device for Whisper (cpu/cuda)')
     ap.add_argument('--compute-type', default="int8", help='Compute type for Whisper (int8, int16, float16, float32)')
+    ap.add_argument('--noise-reduction', type=float, default=DEFAULT_NOISE_REDUCTION, help='Noise floor subtraction strength (0 to disable)')
+    ap.add_argument('--limiter-threshold', type=float, default=DEFAULT_LIMITER_THRESHOLD, help='Soft limiter threshold 0-1 (0 to disable)')
+    ap.add_argument('--attack-threshold', type=float, default=DEFAULT_ATTACK_THRESHOLD, help='Transient attack ratio threshold (0 to disable)')
+    ap.add_argument('--attack-suppress-frames', type=int, default=DEFAULT_ATTACK_SUPPRESS_FRAMES, help='Frames to suppress after transient')
+    ap.add_argument('--min-wake-duration', type=float, default=DEFAULT_MIN_WAKE_DURATION, help='Min wake word duration in seconds (0 to disable)')
     args = ap.parse_args()
 
     if not os.path.exists(args.file):
@@ -366,6 +549,16 @@ def main():
     )
     print("[wake_listener] Whisper model loaded", file=sys.stderr, flush=True)
 
+    # Create audio pre-filter for wake word detection
+    audio_prefilter = AudioPreFilter(
+        noise_reduction=args.noise_reduction,
+        limiter_threshold=args.limiter_threshold,
+        attack_threshold=args.attack_threshold,
+        attack_suppress_frames=args.attack_suppress_frames,
+        min_wake_duration=args.min_wake_duration,
+    )
+    print(f"[wake_listener] Audio pre-filter enabled (noise={args.noise_reduction}, limiter={args.limiter_threshold}, attack={args.attack_threshold}, min_dur={args.min_wake_duration})", file=sys.stderr, flush=True)
+
     # Create file reader and start stdin monitor
     reader = RestartableFileReader(args.file)
     print("[main] Starting stdin monitor thread", file=sys.stderr)
@@ -384,14 +577,18 @@ def main():
         
         # Only check for wake words when in wake word detection state and not in cooldown
         if speech_processor.state == ListenerState.WAKE_WORD_DETECTION and not speech_processor.is_in_cooldown():
-            # NOTE: openWakeWord accepts 16 kHz 16-bit PCM frames; multiples of 80 ms recommended.
-            preds = wake_model.predict(samples)
+            # Pre-filter audio before wake word detection
+            filtered_samples = audio_prefilter.process(samples)
+            preds = wake_model.predict(filtered_samples)
+
+            # If attack gate fired, ignore this prediction entirely
+            if audio_prefilter.should_suppress():
+                continue
+
             # preds is typically a dict {label: score} or a list of such dicts per frame
-            # Normalize to a dict for this simple demo
             if isinstance(preds, dict):
                 frame_scores = preds
             else:
-                # If list-like, take last frame's dict
                 try:
                     frame_scores = preds[-1]
                 except Exception:
@@ -400,23 +597,34 @@ def main():
             # Send any activations above threshold as JSON
             triggered = [(k, v) for k, v in frame_scores.items() if v >= args.threshold]
             if triggered:
-                for label, score in triggered:
-                    # Wake word detected, start listening for speech
-                    listening_event = speech_processor.start_listening()
-                    print(json.dumps(listening_event), flush=True)
-                    
-                    wake_event = {
-                        "type": "wakeword",
-                        "label": str(label),
-                        "score": round(float(score), 3),
+                # Duration validation: reject if audio energy was too brief
+                if not audio_prefilter.validate_detection():
+                    reject_event = {
+                        "type": "info",
+                        "message": "Wake word rejected: audio too brief (likely transient/click)",
                         "timestamp": time.time()
                     }
-                    print(json.dumps(wake_event), flush=True)
-                    break  # Only process first wake word detection
+                    print(json.dumps(reject_event), flush=True)
+                    wake_model.reset()
+                else:
+                    for label, score in triggered:
+                        # Wake word detected, start listening for speech
+                        listening_event = speech_processor.start_listening()
+                        print(json.dumps(listening_event), flush=True)
+
+                        wake_event = {
+                            "type": "wakeword",
+                            "label": str(label),
+                            "score": round(float(score), 3),
+                            "timestamp": time.time()
+                        }
+                        print(json.dumps(wake_event), flush=True)
+                        break  # Only process first wake word detection
         elif speech_processor.state == ListenerState.WAKE_WORD_DETECTION and speech_processor.is_in_cooldown():
-            # During cooldown, still feed frames to wake word model to clear its internal state
-            # but ignore the results to prevent false triggers
-            _ = wake_model.predict(samples)
+            # During cooldown, still feed frames through pre-filter (keeps noise floor updated)
+            # and to wake word model to clear its internal state
+            filtered_samples = audio_prefilter.process(samples)
+            _ = wake_model.predict(filtered_samples)
 
 
 if __name__ == "__main__":

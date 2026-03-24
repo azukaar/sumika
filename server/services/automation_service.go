@@ -122,8 +122,6 @@ func (s *AutomationService) DeleteAutomation(id string) error {
 
 // CheckTriggers checks if any automations should be triggered
 func (s *AutomationService) CheckTriggers(deviceName string, oldState, newState map[string]interface{}) {
-	utils.Debug(fmt.Sprintf("Checking triggers for device: %s", deviceName))
-	
 	automations, err := s.GetAllAutomations()
 	if err != nil {
 		fmt.Printf("Failed to get automations for trigger check: %v\n", err)

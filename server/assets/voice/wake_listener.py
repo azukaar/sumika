@@ -150,21 +150,19 @@ class AudioPreFilter:
         magnitude = np.abs(spectrum)
         phase = np.angle(spectrum)
 
-        # Adapt noise floor estimate
+        # Adapt noise floor estimate — only during quiet periods to prevent
+        # speech or response playback from polluting the noise estimate
         rms = np.sqrt(np.mean(audio ** 2))
         self._noise_frames_seen += 1
 
         if self._noise_frames_seen <= self._noise_bootstrap_frames:
-            # Fast adaptation during bootstrap
+            # Fast adaptation during bootstrap (first ~1s)
             alpha = 0.2
-        else:
-            alpha = 0.02
-
-        # Update noise floor more aggressively during quiet periods
-        if rms < 0.02:
-            alpha = min(alpha * 3, 0.5)
-
-        self.noise_floor = alpha * magnitude + (1.0 - alpha) * self.noise_floor
+            self.noise_floor = alpha * magnitude + (1.0 - alpha) * self.noise_floor
+        elif rms < 0.015:
+            # Only update noise floor when audio is clearly just ambient noise
+            alpha = 0.05
+            self.noise_floor = alpha * magnitude + (1.0 - alpha) * self.noise_floor
 
         # Subtract noise floor from magnitude
         cleaned_magnitude = np.maximum(magnitude - self.noise_reduction * self.noise_floor, 0.0)

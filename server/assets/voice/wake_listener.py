@@ -72,8 +72,17 @@ class AudioPreFilter:
         # Duration validation state
         self._rms_history = deque(maxlen=PREFILTER_HISTORY_FRAMES)
 
+        # Logging
+        self._log_counter = 0
+
+    def _log(self, message):
+        """Emit a prefilter log event."""
+        event = {"type": "prefilter_debug", "message": message, "timestamp": time.time()}
+        print(json.dumps(event), flush=True)
+
     def process(self, samples):
         """Apply noise reduction, limiter, and attack gate. Returns filtered int16 samples."""
+        raw_rms = np.sqrt(np.mean((samples.astype(np.float32) / 32768.0) ** 2))
         audio = samples.astype(np.float32) / 32768.0
 
         # 1. Noise reduction (spectral subtraction)
@@ -86,7 +95,7 @@ class AudioPreFilter:
 
         # 3. Attack gate
         rms = np.sqrt(np.mean(audio ** 2))
-        self._rms_history.append(rms)
+        self._rms_history.append(raw_rms)  # track raw RMS for duration validation
         suppressed = False
 
         if self.attack_threshold > 0:
@@ -96,6 +105,7 @@ class AudioPreFilter:
 
         if suppressed:
             self._suppressed = True
+            self._log(f"Attack gate SUPPRESSED frame (raw_rms={raw_rms:.4f}, filtered_rms={rms:.4f})")
             # Return silence so the model's internal buffer stays aligned
             return np.zeros(len(samples), dtype=np.int16)
 
@@ -140,6 +150,8 @@ class AudioPreFilter:
         best_run = max(best_run, current_run)
 
         duration_s = best_run * (FRAME_MS / 1000.0)
+        rms_values = [f"{v:.4f}" for v in history]
+        self._log(f"Duration check: {duration_s:.2f}s (need {self.min_wake_duration}s), threshold={elevated_threshold:.4f}, rms=[{', '.join(rms_values)}]")
         if duration_s < self.min_wake_duration:
             return False
         return True

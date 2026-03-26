@@ -673,6 +673,8 @@ func (vr *VoiceRunner) run() {
                     if os.Getenv("DEBUG_PYTHON") != "" {
                         utils.Debug(fmt.Sprintf("AUDIO DEBUG: %s", event.Message))
                     }
+                case "prefilter_debug":
+                    utils.Log(fmt.Sprintf("PREFILTER: %s", event.Message))
                 case "silence_detected":
                     if vr.getActiveSession() != nil {
                         break // OpenAI handles silence via its own VAD
@@ -734,7 +736,7 @@ func (vr *VoiceRunner) run() {
                         vr.callbacks.OnError(event.Message, event.ProcessingTime)
                     }
                 case "info":
-                    utils.Debug(event.Message)
+                    utils.Log(event.Message)
                 default:
                     utils.Debug(fmt.Sprintf("Unknown event type: %s", event.Type))
                 }

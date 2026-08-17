@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/azukaar/sumika/server/storage"
@@ -32,6 +33,7 @@ const (
 // AutomationService handles business logic for automation operations
 type AutomationService struct {
 	sceneService      *SceneService
+	mu                sync.Mutex // guards buttonStates, lastTriggered and ButtonPressState fields
 	buttonStates      map[string]*ButtonPressState
 	lastTriggered     map[string]time.Time // tracks last execution time per automation ID
 	SendDeviceCommand func(deviceName, command string)
@@ -188,21 +190,35 @@ func (s *AutomationService) CheckTriggers(deviceName string, oldState, newState 
 		
 		if triggered {
 			// Cooldown: skip if this automation was triggered too recently
-			if last, ok := s.lastTriggered[automation.ID]; ok && time.Since(last) < AutomationCooldown {
+			if !s.tryAcquireTrigger(automation.ID) {
 				utils.Debug(fmt.Sprintf("Skipping automation '%s' - still in cooldown", automation.Name))
 				continue
 			}
-			s.lastTriggered[automation.ID] = time.Now()
 			s.ExecuteAutomationAction(automation)
 		}
 	}
 }
 
+// tryAcquireTrigger atomically checks the cooldown for an automation and, if it
+// has expired, records a new trigger time. Returns false while still in cooldown.
+func (s *AutomationService) tryAcquireTrigger(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if last, ok := s.lastTriggered[id]; ok && time.Since(last) < AutomationCooldown {
+		return false
+	}
+	s.lastTriggered[id] = time.Now()
+	return true
+}
+
 // handleButtonPress handles button press detection with debouncing for single, double, and long press
 func (s *AutomationService) handleButtonPress(deviceName, property, condition string, automation types.Automation) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	stateKey := fmt.Sprintf("%s_%s", deviceName, property)
 	now := time.Now()
-	
+
 	// Get or create button state
 	state, exists := s.buttonStates[stateKey]
 	if !exists {
@@ -272,18 +288,23 @@ func (s *AutomationService) handleButtonPress(deviceName, property, condition st
 			go func() {
 				time.Sleep(DoublePressWindow)
 
+				s.mu.Lock()
 				// Check if single press is still pending (not cancelled by double press or long press)
-				if state.DoublePressPending && state.PressCount == 1 {
-					if last, ok := s.lastTriggered[automation.ID]; ok && time.Since(last) < AutomationCooldown {
-						utils.Debug(fmt.Sprintf("Skipping single press automation '%s' - still in cooldown", automation.Name))
-						state.DoublePressPending = false
-						return
-					}
-					s.lastTriggered[automation.ID] = time.Now()
-					utils.Log(fmt.Sprintf("Single press confirmed for %s.%s", deviceName, property))
-					state.DoublePressPending = false
-					s.ExecuteAutomationAction(automation)
+				if !state.DoublePressPending || state.PressCount != 1 {
+					s.mu.Unlock()
+					return
 				}
+				state.DoublePressPending = false
+				if last, ok := s.lastTriggered[automation.ID]; ok && time.Since(last) < AutomationCooldown {
+					s.mu.Unlock()
+					utils.Debug(fmt.Sprintf("Skipping single press automation '%s' - still in cooldown", automation.Name))
+					return
+				}
+				s.lastTriggered[automation.ID] = time.Now()
+				s.mu.Unlock()
+
+				utils.Log(fmt.Sprintf("Single press confirmed for %s.%s", deviceName, property))
+				s.ExecuteAutomationAction(automation)
 			}()
 			
 			return false // Don't trigger immediately, wait for debounce

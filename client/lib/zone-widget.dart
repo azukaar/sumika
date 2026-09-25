@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './types.dart';
 import './zigbee-service.dart';
+import './app_mode.dart';
 
 class ZoneManagementWidget extends ConsumerStatefulWidget {
   final Device device;
@@ -164,7 +165,7 @@ class _ZoneManagementWidgetState extends ConsumerState<ZoneManagementWidget> {
     return ListTile(
       leading: const Icon(Icons.folder),
       title: Text(zoneText),
-      trailing: IconButton(
+      trailing: AppMode.noConfig ? null : IconButton(
         icon: const Icon(Icons.edit),
         onPressed: _showZoneSelectionDialog,
       ),

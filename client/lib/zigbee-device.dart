@@ -6,6 +6,7 @@ import './controls/controls.dart';
 import './zone-widget.dart';
 import './device_metadata_widget.dart';
 import './utils/device_utils.dart';
+import './app_mode.dart';
 
 class ZigbeeDevicePage extends ConsumerStatefulWidget {
   const ZigbeeDevicePage({super.key});
@@ -200,7 +201,7 @@ class _ZigbeeDevicesPagetate extends ConsumerState<ZigbeeDevicePage> {
                   ref.read(devicesProvider.notifier).refreshDeviceState(device.friendlyName);
                 },
               ),
-              PopupMenuButton<String>(
+              if (!AppMode.noConfig) PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'delete') {
                     _showDeleteConfirmationDialog(context, device);

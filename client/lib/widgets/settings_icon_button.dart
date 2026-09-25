@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_mode.dart';
 
 class SettingsIconButton extends StatelessWidget {
   final EdgeInsetsGeometry margin;
@@ -10,6 +11,8 @@ class SettingsIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppMode.noConfig) return const SizedBox.shrink();
+
     return Container(
       margin: margin,
       child: IconButton(

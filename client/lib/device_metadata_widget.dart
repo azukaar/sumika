@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './types.dart';
 import './device_metadata_service.dart';
 import './utils/device_utils.dart';
+import './app_mode.dart';
 
 class DeviceMetadataWidget extends ConsumerStatefulWidget {
   final Device device;
@@ -330,7 +331,7 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
           subtitle: isCustomName
               ? Text('Custom name (was: ${widget.device.friendlyName})')
               : null,
-          trailing: IconButton(
+          trailing: AppMode.noConfig ? null : IconButton(
             icon: const Icon(Icons.edit),
             onPressed: _showNameEditDialog,
             tooltip: 'Edit device name',
@@ -360,7 +361,7 @@ class _DeviceMetadataWidgetState extends ConsumerState<DeviceMetadataWidget> {
               : isCustomCategory
                   ? const Text('Custom category')
                   : null,
-          trailing: IconButton(
+          trailing: AppMode.noConfig ? null : IconButton(
             icon: const Icon(Icons.edit),
             onPressed: _showCategorySelectionDialog,
             tooltip: 'Edit device category',

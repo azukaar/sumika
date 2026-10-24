@@ -563,6 +563,9 @@ func mergeDevice(existing, new map[string]interface{}) map[string]interface{} {
 	return merged
 }
 
+// How often last_seen is persisted for devices whose state hasn't changed
+const lastSeenPersistInterval = 10 * time.Minute
+
 func SaveUpdates() {
 	MQTT.Subscribe("zb2m-sumika/+", func(topic string, payload []byte) {
 		// Debug: Save device state update message  
@@ -582,12 +585,17 @@ func SaveUpdates() {
 		// Find device in cache to get old state
 		var deviceFound bool
 		var newDeviceCache map[string]interface{}
-		
+		var previousLastSeen time.Time
+
 		for i, cachedDevice := range cachedDevices {
 			if friendlyName, exists := cachedDevice["friendly_name"]; exists && friendlyName == deviceName {
 				deviceFound = true
 				// utils.Debug(fmt.Sprintf("Found device %s in cache", deviceName))
-				
+
+				if lastSeen, ok := cachedDevice["last_seen"].(string); ok {
+					previousLastSeen, _ = time.Parse(time.RFC3339, lastSeen)
+				}
+
 				// Get old state from cache
 				if state, hasState := cachedDevice["state"]; hasState {
 					if stateMap, ok := state.(map[string]interface{}); ok {
@@ -620,6 +628,13 @@ func SaveUpdates() {
 			}
 			if reflect.DeepEqual(oldFiltered, newFiltered) {
 				// utils.Debug(fmt.Sprintf("Device %s state unchanged, skipping update", deviceName))
+				// The device is still alive: persist last_seen, throttled to avoid a disk write per message
+				if time.Since(previousLastSeen) > lastSeenPersistInterval {
+					SetDeviceCache(cachedDevices)
+					if deviceIndex := getDeviceByName(deviceName); deviceIndex != -1 {
+						DeviceList[deviceIndex].LastSeen = time.Now().Format("2006-01-02T15:04:05Z07:00")
+					}
+				}
 				return
 			}
 		}

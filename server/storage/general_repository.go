@@ -318,12 +318,34 @@ func GetDeviceCache() []map[string]interface{} {
 	return cache
 }
 
+// The device cache changes on almost every MQTT message, so its saves are
+// batched instead of rewriting the whole storage file each time
+const deviceCacheSaveDelay = 5 * time.Second
+
+var (
+	deviceCacheSaveTimer *time.Timer
+	deviceCacheSaveMutex sync.Mutex
+)
+
 func SetDeviceCache(cache []map[string]interface{}) error {
 	dataMutex.Lock()
 	globalData.DeviceCache = cache
 	dataMutex.Unlock()
-	
-	return saveData()
+
+	deviceCacheSaveMutex.Lock()
+	defer deviceCacheSaveMutex.Unlock()
+	if deviceCacheSaveTimer == nil {
+		deviceCacheSaveTimer = time.AfterFunc(deviceCacheSaveDelay, func() {
+			deviceCacheSaveMutex.Lock()
+			deviceCacheSaveTimer = nil
+			deviceCacheSaveMutex.Unlock()
+
+			if err := saveData(); err != nil {
+				fmt.Printf("Failed to save device cache: %v\n", err)
+			}
+		})
+	}
+	return nil
 }
 
 func GetDeviceMetadata(device string) (map[string]string, bool) {

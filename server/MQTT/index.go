@@ -155,12 +155,38 @@ func ListenAll() {
   }
 }
 
+// Inline subscription handlers run synchronously in the publishing client's read
+// loop, so slow processing would stall Zigbee2MQTT's connection until its keepalive
+// times out. Messages are queued and handled in order by a single worker instead.
+type queuedMessage struct {
+  topic   string
+  payload []byte
+}
+
+var messageQueue = make(chan queuedMessage, 1024)
+
+func init() {
+  go func() {
+    for msg := range messageQueue {
+      handleMessage(msg.topic, msg.payload)
+    }
+  }()
+}
+
+func enqueueMessage(topic string, payload []byte) {
+  select {
+  case messageQueue <- queuedMessage{topic, append([]byte(nil), payload...)}:
+  default:
+    utils.Warn(fmt.Sprintf("MQTT message queue full, dropping message on %s", topic))
+  }
+}
+
 func MessageBroker(cl *mqtt.Client, sub packets.Subscription, pk packets.Packet) {
-  handleMessage(pk.TopicName, pk.Payload)
+  enqueueMessage(pk.TopicName, pk.Payload)
 }
 
 func externalMessageHandler(client paho.Client, msg paho.Message) {
-  handleMessage(msg.Topic(), msg.Payload())
+  enqueueMessage(msg.Topic(), msg.Payload())
 }
 
 func handleMessage(topic string, payload []byte) {
@@ -198,14 +224,14 @@ func Publish(topic string, payload []byte) {
   utils.Debug(fmt.Sprintf("MQTT Publish: %s", topic))
   
   if IsExternalBroker {
-    token := ExternalClient.Publish(topic, 2, true, payload)
+    token := ExternalClient.Publish(topic, 2, false, payload)
     go func() {
       if token.Wait() && token.Error() != nil {
         utils.Error(fmt.Sprintf("Failed to publish to %s", topic), token.Error())
       }
     }()
   } else {
-    go MQQTServer.Publish(topic, payload, true, 2)
+    go MQQTServer.Publish(topic, payload, false, 2)
   }
 }
 
